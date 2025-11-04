@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,9 +8,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   Search, 
-  Plus, 
   Eye, 
   MessageSquare, 
   Calendar, 
@@ -40,7 +41,7 @@ interface ClientRequest {
   };
   request_type: string;
   priority: 'low' | 'normal' | 'high' | 'urgent';
-  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+  status: 'open' | 'in_progress' | 'completed' | 'cancelled';
   hotspots: any[];
   files: any[];
   created_at: string;
@@ -60,7 +61,12 @@ const ClientRequestsHub: React.FC<ClientRequestsHubProps> = ({
   onDataUsed
 }) => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [requests, setRequests] = useState<ClientRequest[]>([]);
+  
+  // Real-time subscription setup
+  const channelRef = useRef<any>(null);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [clientFilter, setClientFilter] = useState('all');
@@ -73,15 +79,126 @@ const ClientRequestsHub: React.FC<ClientRequestsHubProps> = ({
   // Users start with empty state
 
   useEffect(() => {
-    // Production ready - load real requests from database
-    // For now, show empty state
-    setRequests([]);
-    setLoading(false);
-  }, []);
+    if (user?.id) {
+      loadRequests();
+    }
+  }, [user?.id]);
+
+  const loadRequests = async () => {
+    try {
+      setLoading(true);
+      
+      // Get requests for this creator's projects
+      const { data, error } = await supabase
+        .from('requests')
+        .select(`
+          *,
+          projects!inner(
+            id,
+            title,
+            end_clients!inner(
+              id,
+              name,
+              email,
+              company,
+              creators!inner(
+                id,
+                user_id
+              )
+            )
+          )
+        `)
+        .eq('projects.end_clients.creators.user_id', user?.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      
+      // Transform the data to match the expected interface
+      const transformedRequests = (data || []).map(request => ({
+        id: request.id,
+        title: request.title,
+        description: request.description,
+        client: {
+          name: request.projects?.end_clients?.name || 'Unknown Client',
+          email: request.projects?.end_clients?.email || '',
+          company: request.projects?.end_clients?.company || 'Unknown Company',
+        },
+        request_type: request.request_type,
+        priority: request.priority,
+        status: request.status,
+        hotspots: [],
+        files: [],
+        created_at: request.created_at,
+        updated_at: request.updated_at,
+        assigned_to: undefined,
+        estimated_completion: undefined,
+        actual_completion: undefined,
+      }));
+      
+      setRequests(transformedRequests);
+    } catch (error: any) {
+      console.error('Error loading requests:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load client requests',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Set up real-time subscriptions for requests
+  useEffect(() => {
+    if (!user?.id) return;
+
+    console.log('[ClientRequestsHub] Setting up real-time subscriptions');
+
+    const channel = supabase
+      .channel(`client-requests-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'requests',
+        },
+        (payload) => {
+          console.log('[ClientRequestsHub] Request change detected:', payload);
+          debouncedRefresh();
+        }
+      )
+      .subscribe((status) => {
+        console.log('[ClientRequestsHub] Subscription status:', status);
+      });
+
+    channelRef.current = channel;
+
+    return () => {
+      console.log('[ClientRequestsHub] Cleaning up real-time subscriptions');
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, [user?.id]);
+
+  const debouncedRefresh = () => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    
+    debounceTimeoutRef.current = setTimeout(() => {
+      console.log('[ClientRequestsHub] Triggering debounced refresh');
+      loadRequests();
+    }, 1000);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending':
+      case 'open':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800';
       case 'in_progress':
         return 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800';
@@ -96,7 +213,7 @@ const ClientRequestsHub: React.FC<ClientRequestsHubProps> = ({
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'pending':
+      case 'open':
         return <Clock className="h-3 w-3" />;
       case 'in_progress':
         return <Play className="h-3 w-3" />;
@@ -174,7 +291,7 @@ const ClientRequestsHub: React.FC<ClientRequestsHubProps> = ({
 
   const stats = {
     total: requests.length,
-    pending: requests.filter(r => r.status === 'pending').length,
+    pending: requests.filter(r => r.status === 'open').length,
     inProgress: requests.filter(r => r.status === 'in_progress').length,
     completed: requests.filter(r => r.status === 'completed').length,
     urgent: requests.filter(r => r.priority === 'urgent').length
@@ -190,11 +307,6 @@ const ClientRequestsHub: React.FC<ClientRequestsHubProps> = ({
             Manage all requests from all your clients in one centralized location
           </p>
         </div>
-        
-        <Button className="bg-primary hover:bg-primary-hover">
-          <Plus className="h-4 w-4 mr-2" />
-          New Request
-        </Button>
       </div>
 
       {/* Overview Stats */}
@@ -297,7 +409,7 @@ const ClientRequestsHub: React.FC<ClientRequestsHubProps> = ({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="open">Open</SelectItem>
             <SelectItem value="in_progress">In Progress</SelectItem>
             <SelectItem value="completed">Completed</SelectItem>
             <SelectItem value="cancelled">Cancelled</SelectItem>
@@ -344,9 +456,9 @@ const ClientRequestsHub: React.FC<ClientRequestsHubProps> = ({
           {filteredRequests.map((request) => (
             <Card key={request.id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-4 flex-1">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-4 flex-1 min-w-0">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center flex-shrink-0">
                       <span className="text-sm font-semibold text-primary">
                         {request.client.name.split(' ').map(n => n[0]).join('').toUpperCase()}
                       </span>
@@ -354,7 +466,7 @@ const ClientRequestsHub: React.FC<ClientRequestsHubProps> = ({
                     
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2">
-                        <h3 className="text-lg font-semibold text-foreground line-clamp-1">
+                        <h3 className="text-lg font-semibold text-foreground line-clamp-1 flex-1 min-w-0">
                           {request.title}
                         </h3>
                         <Badge className={getPriorityColor(request.priority)}>
@@ -392,7 +504,7 @@ const ClientRequestsHub: React.FC<ClientRequestsHubProps> = ({
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-shrink-0">
                     <Badge className={getStatusColor(request.status)}>
                       <div className="flex items-center gap-1">
                         {getStatusIcon(request.status)}

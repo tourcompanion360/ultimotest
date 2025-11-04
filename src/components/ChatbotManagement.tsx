@@ -23,8 +23,6 @@ import {
   Users, 
   Clock, 
   Star,
-  Upload,
-  FileText,
   Palette,
   Globe,
   Loader2,
@@ -84,7 +82,6 @@ const ChatbotManagement: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
-  const [uploadingFiles, setUploadingFiles] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [previewData, setPreviewData] = useState<any>(null);
   
@@ -109,6 +106,7 @@ const ChatbotManagement: React.FC = () => {
       response_style: 'friendly',
       max_questions: 10,
       knowledge_base_text: '',
+      file_links: '',
       status: 'draft' as const
     }
   });
@@ -438,28 +436,6 @@ const ChatbotManagement: React.FC = () => {
     }
   };
 
-  const handleFileUpload = async (files: FileList) => {
-    try {
-      setUploadingFiles(true);
-      
-      // Simulate file upload - in real app, this would upload to storage
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      toast({
-        title: TEXT.CHATBOT_MANAGEMENT.FILES_UPLOADED,
-        description: `${files.length} files uploaded successfully`
-      });
-    } catch (error) {
-      console.error('Error uploading files:', error);
-      toast({
-        title: TEXT.TOAST.ERROR,
-        description: TEXT.CHATBOT_MANAGEMENT.ERROR_UPLOADING_FILES,
-        variant: 'destructive'
-      });
-    } finally {
-      setUploadingFiles(false);
-    }
-  };
 
   const handlePreview = () => {
     const formData = form.getValues();
@@ -1195,32 +1171,32 @@ const ChatbotManagement: React.FC = () => {
                         )}
                       />
 
-                      <div>
-                        <Label>{TEXT.CHATBOT_MANAGEMENT.FILE_UPLOADS}</Label>
-                        <div className="text-xs text-muted-foreground mb-2">
-                          Upload documents like FAQs, product manuals, or company policies to enhance your chatbot's knowledge.
-                        </div>
-                        <div 
-                          className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-muted-foreground/50 transition-colors cursor-pointer"
-                          onDrop={(e) => {
-                            e.preventDefault();
-                            handleFileUpload(e.dataTransfer.files);
-                          }}
-                          onDragOver={(e) => e.preventDefault()}
-                        >
-                          <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                          <p className="text-sm text-muted-foreground mb-1">{TEXT.CHATBOT_MANAGEMENT.DRAG_DROP_FILES}</p>
-                          <p className="text-xs text-muted-foreground">{TEXT.CHATBOT_MANAGEMENT.SUPPORTED_FORMATS}</p>
-                          <p className="text-xs text-muted-foreground">{TEXT.CHATBOT_MANAGEMENT.MAX_FILE_SIZE}</p>
-                          <input
-                            type="file"
-                            multiple
-                            accept=".pdf,.txt,.doc,.docx"
-                            className="hidden"
-                            onChange={(e) => e.target.files && handleFileUpload(e.target.files)}
-                          />
-                        </div>
-                      </div>
+                      <FormField
+                        control={form.control}
+                        name="file_links"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{TEXT.CHATBOT_MANAGEMENT.FILE_UPLOADS}</FormLabel>
+                            <div className="text-xs text-muted-foreground mb-2">
+                              Share documents like FAQs, product manuals, or company policies via Google Drive, Dropbox, or WeTransfer to enhance your chatbot's knowledge.
+                            </div>
+                            <FormControl>
+                              <Textarea
+                                placeholder="https://drive.google.com/file/d/...&#10;https://www.dropbox.com/s/...&#10;https://wetransfer.com/downloads/..."
+                                {...field}
+                                rows={4}
+                                className="resize-none"
+                              />
+                            </FormControl>
+                            <div className="text-xs text-muted-foreground">
+                              <p>• One link per line</p>
+                              <p>• Make sure links are publicly accessible or shared with appropriate permissions</p>
+                              <p>• Supported: Google Drive, Dropbox, WeTransfer, OneDrive, and other cloud storage services</p>
+                            </div>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </CardContent>
                   </Card>
 

@@ -399,7 +399,7 @@ const AdminDashboard = () => {
                 {/* Files */}
                 {selectedRequest.uploaded_files && selectedRequest.uploaded_files.length > 0 && (
                   <div className="space-y-3">
-                    <h3 className="font-semibold">Uploaded Files</h3>
+                    <h3 className="font-semibold">Shared Files</h3>
                     <div className="space-y-2">
                       {selectedRequest.uploaded_files.map((file: any, index: number) => (
                         <div key={index} className="flex items-center justify-between p-2 border rounded">
@@ -516,5 +516,8 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
+
+
+
 
 

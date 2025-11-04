@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MessageCircle, Phone, Mail, X } from 'lucide-react';
+import { MessageCircle, Mail, X } from 'lucide-react';
 
 const FloatingContact = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -27,16 +27,6 @@ const FloatingContact = () => {
         const body = '';
         const mailtoUrl = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
         window.location.href = mailtoUrl;
-      }
-    },
-    {
-      id: 'phone',
-      label: 'Chiama',
-      icon: Phone,
-      color: 'from-purple-500 to-purple-600',
-      action: () => {
-        const phoneNumber = '+393293763839';
-        window.location.href = `tel:${phoneNumber}`;
       }
     }
   ];
@@ -76,8 +66,7 @@ const FloatingContact = () => {
                 onClick={option.action}
                 className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-lg hover:scale-105 transition-all duration-200 ${
                   option.id === 'whatsapp' ? 'bg-green-500 hover:bg-green-600' :
-                  option.id === 'email' ? 'bg-blue-500 hover:bg-blue-600' :
-                  'bg-purple-500 hover:bg-purple-600'
+                  'bg-blue-500 hover:bg-blue-600'
                 }`}
               >
                 <Icon size={18} className="text-white" />

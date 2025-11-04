@@ -6,20 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { 
   User, 
   Mail, 
   Building, 
   CreditCard, 
-  Key, 
   Shield, 
   Link, 
   Calendar,
   Settings as SettingsIcon,
   Upload,
-  Eye,
-  EyeOff,
   ExternalLink,
   CheckCircle,
   AlertCircle,
@@ -51,15 +47,6 @@ interface IntegrationSettings {
   webhook_url: string;
 }
 
-interface APIKey {
-  id: string;
-  name: string;
-  key: string;
-  user_id: string;
-  created_at: string;
-  last_used: string;
-  permissions: string[];
-}
 
 const Settings: React.FC = () => {
   const { toast } = useToast();
@@ -82,10 +69,6 @@ const Settings: React.FC = () => {
     webhook_url: ''
   });
 
-  const [apiKeys, setApiKeys] = useState<APIKey[]>([]);
-  const [showApiKey, setShowApiKey] = useState<{ [key: string]: boolean }>({});
-  const [newApiKeyName, setNewApiKeyName] = useState('');
-  const [isGeneratingKey, setIsGeneratingKey] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -99,18 +82,45 @@ const Settings: React.FC = () => {
       setIsLoading(true);
       setError(null);
 
-      // Load profile settings
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Load profile settings from creators table
       const { data: profileData, error: profileError } = await supabase
-        .from('agency_settings')
+        .from('creators')
         .select('*')
-        .eq('user_id', 'anonymous')
+        .eq('user_id', user.id)
         .single();
 
       if (profileData && !profileError) {
-        setProfileSettings(prev => ({ ...prev, ...profileData }));
+        setProfileSettings({
+          agency_name: profileData.agency_name || '',
+          agency_logo: profileData.agency_logo || '',
+          contact_email: profileData.contact_email || user.email || '',
+          phone: profileData.phone || '',
+          website: profileData.website || '',
+          address: profileData.address || '',
+          description: profileData.description || ''
+        });
+      } else {
+        console.error('Profile error:', profileError);
+        // Set default values if no profile found
+        setProfileSettings({
+          agency_name: '',
+          agency_logo: '',
+          contact_email: user.email || '',
+          phone: '',
+          website: '',
+          address: '',
+          description: ''
+        });
       }
 
-      // Load integration settings
+      // Load integration settings (keep existing logic for now)
       const { data: integrationData, error: integrationError } = await supabase
         .from('integration_settings')
         .select('*')
@@ -121,16 +131,6 @@ const Settings: React.FC = () => {
         setIntegrationSettings(prev => ({ ...prev, ...integrationData }));
       }
 
-      // Load API keys
-      const { data: keysData, error: keysError } = await supabase
-        .from('api_keys')
-        .select('*')
-        .eq('user_id', 'anonymous')
-        .order('created_at', { ascending: false });
-
-      if (keysData && !keysError) {
-        setApiKeys(keysData);
-      }
     } catch (error) {
       console.error('Error loading settings:', error);
       setError(TEXT.SETTINGS_PAGE.ERROR_SAVING_PROFILE);
@@ -154,14 +154,27 @@ const Settings: React.FC = () => {
         current_user_email: profileSettings.contact_email
       });
 
-      // Save to Supabase
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Save to creators table
       const { error } = await supabase
-        .from('agency_settings')
-        .upsert({
-          ...profileSettings,
-          user_id: 'anonymous',
+        .from('creators')
+        .update({
+          agency_name: profileSettings.agency_name,
+          agency_logo: profileSettings.agency_logo,
+          contact_email: profileSettings.contact_email,
+          phone: profileSettings.phone,
+          website: profileSettings.website,
+          address: profileSettings.address,
+          description: profileSettings.description,
           updated_at: new Date().toISOString()
-        });
+        })
+        .eq('user_id', user.id);
 
       if (error) throw error;
 
@@ -286,79 +299,6 @@ const Settings: React.FC = () => {
     }
   };
 
-  const generateApiKey = async () => {
-    if (!newApiKeyName.trim()) {
-      toast({
-        title: TEXT.TOAST.ERROR,
-        description: TEXT.SETTINGS_PAGE.ENTER_API_KEY_NAME_ERROR,
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsGeneratingKey(true);
-    try {
-      const newKey = `sk_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
-      
-      const newApiKey: APIKey = {
-        id: Date.now().toString(),
-        name: newApiKeyName,
-        key: newKey,
-        user_id: 'anonymous',
-        created_at: new Date().toISOString(),
-        last_used: '',
-        permissions: ['read', 'write']
-      };
-
-      const { error } = await supabase
-        .from('api_keys')
-        .insert(newApiKey);
-
-      if (error) throw error;
-
-      setApiKeys(prev => [newApiKey, ...prev]);
-      setNewApiKeyName('');
-      
-      toast({
-        title: TEXT.SETTINGS_PAGE.API_KEY_GENERATED,
-        description: TEXT.SETTINGS_PAGE.API_KEY_GENERATED_DESCRIPTION
-      });
-    } catch (error) {
-      console.error('Error generating API key:', error);
-      toast({
-        title: TEXT.TOAST.ERROR,
-        description: TEXT.SETTINGS_PAGE.ERROR_GENERATING_KEY,
-        variant: "destructive"
-      });
-    } finally {
-      setIsGeneratingKey(false);
-    }
-  };
-
-  const deleteApiKey = async (keyId: string) => {
-    try {
-      const { error } = await supabase
-        .from('api_keys')
-        .delete()
-        .eq('id', keyId);
-
-      if (error) throw error;
-
-      setApiKeys(prev => prev.filter(key => key.id !== keyId));
-      
-      toast({
-        title: TEXT.SETTINGS_PAGE.API_KEY_DELETED,
-        description: TEXT.SETTINGS_PAGE.API_KEY_DELETED_DESCRIPTION
-      });
-    } catch (error) {
-      console.error('Error deleting API key:', error);
-      toast({
-        title: TEXT.TOAST.ERROR,
-        description: TEXT.SETTINGS_PAGE.ERROR_DELETING_KEY,
-        variant: "destructive"
-      });
-    }
-  };
 
   if (isLoading) {
     return (
@@ -418,11 +358,10 @@ const Settings: React.FC = () => {
       </div>
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="profile" className="text-xs sm:text-sm">{TEXT.SETTINGS_PAGE.PROFILE}</TabsTrigger>
           <TabsTrigger value="billing" className="text-xs sm:text-sm">{TEXT.SETTINGS_PAGE.BILLING}</TabsTrigger>
           <TabsTrigger value="integrations" className="text-xs sm:text-sm">{TEXT.SETTINGS_PAGE.INTEGRATIONS}</TabsTrigger>
-          <TabsTrigger value="security" className="text-xs sm:text-sm">{TEXT.SETTINGS_PAGE.SECURITY}</TabsTrigger>
         </TabsList>
 
         {/* Profile Settings */}
@@ -472,23 +411,25 @@ const Settings: React.FC = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="website">{TEXT.SETTINGS_PAGE.WEBSITE}</Label>
-                  <Input
-                    id="website"
-                    value={profileSettings.website}
-                    onChange={(e) => setProfileSettings(prev => ({ ...prev, website: e.target.value }))}
-                    placeholder={TEXT.SETTINGS_PAGE.ENTER_WEBSITE}
-                  />
+        <Input
+          id="website"
+          value={profileSettings.website}
+          onChange={(e) => setProfileSettings(prev => ({ ...prev, website: e.target.value }))}
+          placeholder={TEXT.SETTINGS_PAGE.ENTER_WEBSITE}
+          className="input-safe"
+        />
                 </div>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="agency_logo">{TEXT.SETTINGS_PAGE.AGENCY_LOGO}</Label>
-                <Input
-                  id="agency_logo"
-                  value={profileSettings.agency_logo}
-                  onChange={(e) => setProfileSettings(prev => ({ ...prev, agency_logo: e.target.value }))}
-                  placeholder={TEXT.SETTINGS_PAGE.ENTER_LOGO_URL}
-                />
+        <Input
+          id="agency_logo"
+          value={profileSettings.agency_logo}
+          onChange={(e) => setProfileSettings(prev => ({ ...prev, agency_logo: e.target.value }))}
+          placeholder={TEXT.SETTINGS_PAGE.ENTER_LOGO_URL}
+          className="input-safe"
+        />
                 {profileSettings.agency_logo && (
                   <div className="mt-2">
                     <img 
@@ -576,15 +517,15 @@ const Settings: React.FC = () => {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span>{TEXT.SETTINGS_PAGE.PROJECTS}</span>
-                    <span>12 / 50</span>
+                    <span className="text-muted-foreground">Real-time data</span>
                   </div>
                   <div className="flex justify-between">
                     <span>{TEXT.SETTINGS_PAGE.STORAGE}</span>
-                    <span>2.3 GB / 10 GB</span>
+                    <span className="text-muted-foreground">Real-time data</span>
                   </div>
                   <div className="flex justify-between">
                     <span>{TEXT.SETTINGS_PAGE.API_CALLS}</span>
-                    <span>1,234 / 10,000</span>
+                    <span className="text-muted-foreground">Real-time data</span>
                   </div>
                 </div>
               </div>
@@ -700,101 +641,6 @@ const Settings: React.FC = () => {
           </Card>
         </TabsContent>
 
-        {/* Security */}
-        <TabsContent value="security" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Key className="h-5 w-5" />
-                {TEXT.SETTINGS_PAGE.API_KEYS}
-              </CardTitle>
-              <CardDescription>
-                {TEXT.SETTINGS_PAGE.MANAGE_API_KEYS}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex gap-2">
-                <Input
-                  placeholder={TEXT.SETTINGS_PAGE.ENTER_API_KEY_NAME}
-                  value={newApiKeyName}
-                  onChange={(e) => setNewApiKeyName(e.target.value)}
-                />
-                <Button onClick={generateApiKey} disabled={isGeneratingKey}>
-                  {isGeneratingKey ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      {TEXT.SETTINGS_PAGE.GENERATING}
-                    </>
-                  ) : (
-                    TEXT.SETTINGS_PAGE.GENERATE_KEY
-                  )}
-                </Button>
-              </div>
-
-              <div className="space-y-3">
-                {apiKeys.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Key className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>{TEXT.SETTINGS_PAGE.NO_API_KEYS}</p>
-                  </div>
-                ) : (
-                  apiKeys.map((key) => (
-                    <div key={key.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h4 className="font-medium">{key.name}</h4>
-                          <Badge variant="outline">{key.permissions.join(', ')}</Badge>
-                        </div>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span>{TEXT.SETTINGS_PAGE.CREATED}: {new Date(key.created_at).toLocaleDateString()}</span>
-                          {key.last_used && (
-                            <span>{TEXT.SETTINGS_PAGE.LAST_USED}: {new Date(key.last_used).toLocaleDateString()}</span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 mt-2">
-                          <code className="text-xs bg-muted px-2 py-1 rounded font-mono">
-                            {showApiKey[key.id] ? key.key : '••••••••••••••••'}
-                          </code>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setShowApiKey(prev => ({ ...prev, [key.id]: !prev[key.id] }))}
-                          >
-                            {showApiKey[key.id] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                          </Button>
-                        </div>
-                      </div>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button size="sm" variant="outline">
-                            {TEXT.SETTINGS_PAGE.DELETE}
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete API Key</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to delete "{key.name}"? This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction 
-                              onClick={() => deleteApiKey(key.id)}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  ))
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
     </div>
   );

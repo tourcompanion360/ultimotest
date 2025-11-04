@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,11 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import ClientProjectCard from '@/components/ClientProjectCard';
 import NewProjectModal from '@/components/NewProjectModal';
 import ChatbotRequestForm from '@/components/ChatbotRequestForm';
-import { useCreatorDashboard } from '@/hooks/useCreatorDashboard';
+import { useCreatorDashboard } from '@/hooks/useCreatorDashboardRobust';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import ShareClientPortal from './ShareClientPortal';
+import EditClientModal from './EditClientModal';
 import { 
   Plus, 
   Search, 
@@ -26,6 +27,7 @@ import {
   Settings,
   Loader2
 } from 'lucide-react';
+import { OptimizedLoading } from '@/components/LoadingStates';
 import { TEXT } from '@/constants/text';
 
 interface TourVirtualiProps {
@@ -44,10 +46,16 @@ const TourVirtuali = ({
   const [statusFilter, setStatusFilter] = useState('all');
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
   const [selectedProjectForSharing, setSelectedProjectForSharing] = useState<any>(null);
+  const [isEditClientModalOpen, setIsEditClientModalOpen] = useState(false);
+  const [selectedClientForEdit, setSelectedClientForEdit] = useState<any>(null);
   
   // Use authentication and data fetching hooks
   const { user } = useAuth();
   const { clients, projects, chatbots, analytics, isLoading, error, refreshData } = useCreatorDashboard(user?.id || '');
+  
+  // Real-time subscription setup
+  const channelRef = useRef<any>(null);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Transform database data to match the expected format
   const [clientProjects, setClientProjects] = useState<any[]>([]);
@@ -59,6 +67,7 @@ const TourVirtuali = ({
   // Transform database data to match the expected format
   useEffect(() => {
     try {
+      console.log('[TourVirtuali] Data transformation - isLoading:', isLoading, 'projects:', projects?.length, 'clients:', clients?.length);
       if (!isLoading) {
         if (projects && projects.length > 0) {
           // Use real database data
@@ -66,6 +75,12 @@ const TourVirtuali = ({
             const client = clients?.find(c => c.id === project.end_client_id);
             const projectChatbots = chatbots?.filter(cb => cb.project_id === project.id) || [];
             const projectAnalytics = analytics?.filter(a => a.project_id === project.id) || [];
+            
+            // Skip projects without valid client data
+            if (!client || !client.id) {
+              console.warn('Project has no valid client:', project.id, client);
+              return null;
+            }
             
             // Calculate analytics totals with safety checks
             const totalViews = projectAnalytics
@@ -92,6 +107,7 @@ const TourVirtuali = ({
             return {
               id: project.id,
               client: {
+                id: client?.id || '',
                 name: client?.name || 'Unknown Client',
                 email: client?.email || '',
                 company: client?.company || 'Unknown Company',
@@ -131,7 +147,7 @@ const TourVirtuali = ({
               createdAt: project.created_at || new Date().toISOString(),
               lastActivity: project.updated_at || new Date().toISOString()
             };
-          });
+          }).filter(project => project !== null); // Remove null projects
           
           setClientProjects(transformedProjects);
         } else {
@@ -145,6 +161,90 @@ const TourVirtuali = ({
       setClientProjects([]);
     }
   }, [isLoading, clients, projects, chatbots, analytics]);
+
+  // Set up real-time subscriptions for projects
+  useEffect(() => {
+    if (!user?.id) return;
+
+    console.log('[TourVirtuali] Setting up real-time subscriptions');
+
+    const channel = supabase
+      .channel(`tour-virtuali-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'projects',
+        },
+        (payload) => {
+          console.log('[TourVirtuali] Project change detected:', payload);
+          debouncedRefresh();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'end_clients',
+        },
+        (payload) => {
+          console.log('[TourVirtuali] Client change detected:', payload);
+          debouncedRefresh();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'chatbots',
+        },
+        (payload) => {
+          console.log('[TourVirtuali] Chatbot change detected:', payload);
+          debouncedRefresh();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'analytics',
+        },
+        (payload) => {
+          console.log('[TourVirtuali] Analytics change detected:', payload);
+          debouncedRefresh();
+        }
+      )
+      .subscribe((status) => {
+        console.log('[TourVirtuali] Subscription status:', status);
+      });
+
+    channelRef.current = channel;
+
+    return () => {
+      console.log('[TourVirtuali] Cleaning up real-time subscriptions');
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, [user?.id]);
+
+  const debouncedRefresh = () => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    
+    debounceTimeoutRef.current = setTimeout(() => {
+      console.log('[TourVirtuali] Triggering debounced refresh');
+      refreshData();
+    }, 1000);
+  };
 
   const handleCreateRequest = (project: any) => {
     if (onCreateRequest) {
@@ -164,8 +264,11 @@ const TourVirtuali = ({
   };
 
   const handleNewProjectCreated = async (newProject: any) => {
+    console.log('[TourVirtuali] New project created:', newProject);
     // Refresh data from database to get the latest projects
+    console.log('[TourVirtuali] Calling refreshData...');
     await refreshData();
+    console.log('[TourVirtuali] Refresh completed');
     // Close modal
     setIsNewProjectModalOpen(false);
   };
@@ -185,10 +288,34 @@ const TourVirtuali = ({
   };
 
   const handleEditProject = (project: any) => {
-    // Open edit modal or navigate to edit page
-    console.log('Edit project:', project);
-    // For demo purposes, we'll just show an alert
-    alert(`Edit project: ${project.project.title}\nClient: ${project.client.name}\nCompany: ${project.client.company}`);
+    // Open edit client modal
+    console.log('Edit client for project:', project);
+    console.log('Project client data:', project.client);
+    console.log('Client ID:', project.client?.id);
+    console.log('Client name:', project.client?.name);
+    
+    if (!project.client || !project.client.id) {
+      console.error('Invalid client data:', project.client);
+      toast({
+        title: 'Error',
+        description: 'Invalid client data. Cannot edit.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    setSelectedClientForEdit(project.client);
+    setIsEditClientModalOpen(true);
+  };
+
+  const handleCloseEditClientModal = () => {
+    setIsEditClientModalOpen(false);
+    setSelectedClientForEdit(null);
+  };
+
+  const handleClientUpdated = async () => {
+    // Refresh data to reflect changes
+    await refreshData();
   };
 
 
@@ -369,31 +496,7 @@ const TourVirtuali = ({
 
       {/* Client Projects Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i} className="animate-pulse">
-              <CardHeader>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-muted rounded-full"></div>
-                  <div className="space-y-2">
-                    <div className="h-4 bg-muted rounded w-3/4"></div>
-                    <div className="h-3 bg-muted rounded w-1/2"></div>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="h-3 bg-muted rounded w-full"></div>
-                  <div className="h-3 bg-muted rounded w-2/3"></div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="h-8 bg-muted rounded"></div>
-                    <div className="h-8 bg-muted rounded"></div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <OptimizedLoading type="dashboard" message="Loading your projects and clients..." />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProjects.map((project) => (
@@ -476,6 +579,14 @@ const TourVirtuali = ({
           </div>
         </div>
       )}
+
+      {/* Edit Client Modal */}
+      <EditClientModal
+        isOpen={isEditClientModalOpen}
+        onClose={handleCloseEditClientModal}
+        client={selectedClientForEdit}
+        onClientUpdated={handleClientUpdated}
+      />
 
     </div>
   );

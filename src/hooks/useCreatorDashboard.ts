@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Creator, EndClient, Project, Chatbot, Lead, Analytics, Request, Asset } from '@/integrations/supabase/types';
+import { safeQuery, safeSingleQuery, safeMultiQuery, SafeQueryResult } from '../utils/databaseUtils';
 
 interface CreatorDashboardData {
   creator: Creator | null;
@@ -45,6 +46,9 @@ export const useCreatorDashboard = (userId: string | null) => {
     error: null,
   });
 
+  const channelRef = useRef<any>(null);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
     if (!userId) {
       setData(prev => ({ ...prev, isLoading: false }));
@@ -55,10 +59,21 @@ export const useCreatorDashboard = (userId: string | null) => {
       try {
         setData(prev => ({ ...prev, isLoading: true, error: null }));
 
-        // Get creator profile
+        // OPTIMIZED: Single query to get creator with all related data
         const { data: creator, error: creatorError } = await supabase
           .from('creators')
-          .select('*')
+          .select(`
+            *,
+            end_clients(
+              *,
+              projects(
+                *,
+                chatbots(*),
+                analytics(*),
+                requests(*)
+              )
+            )
+          `)
           .eq('user_id', userId)
           .single();
 
@@ -70,66 +85,29 @@ export const useCreatorDashboard = (userId: string | null) => {
           throw new Error('Creator profile not found');
         }
 
-        // Fetch end clients first
-        const { data: clients, error: clientsError } = await supabase
-          .from('end_clients')
-          .select('*')
-          .eq('creator_id', creator.id)
-          .order('created_at', { ascending: false });
+        // Extract data from the optimized query
+        const clients = creator.end_clients || [];
+        const projects = clients.flatMap(client => client.projects || []);
+        const chatbots = projects.flatMap(project => project.chatbots || []);
+        const analytics = projects.flatMap(project => project.analytics || []);
+        const requests = projects.flatMap(project => project.requests || []);
+        const projectIds = projects.map(p => p.id);
 
-        if (clientsError) {
-          console.error('Error fetching clients:', clientsError);
-        }
-
-        const clientIds = clients?.map(c => c.id) || [];
-
-        // Fetch projects for the clients
-        const { data: projects, error: projectsError } = clientIds.length > 0
-          ? await supabase
-              .from('projects')
-              .select('*')
-              .in('end_client_id', clientIds)
-              .order('created_at', { ascending: false })
-          : { data: [], error: null };
-
-        const projectIds = projects?.map(p => p.id) || [];
-
-        // Fetch all related data in parallel
+        // OPTIMIZED: Only fetch leads and assets (not included in main query)
         const [
-          { data: chatbots, error: chatbotsError },
           { data: leads, error: leadsError },
-          { data: analytics, error: analyticsError },
-          { data: requests, error: requestsError },
           { data: assets, error: assetsError },
         ] = await Promise.all([
-          // Chatbots - query by project IDs
+          // Leads - query by chatbot IDs (only if there are projects)
           projectIds.length > 0
-            ? supabase
-                .from('chatbots')
-                .select('*')
-                .in('project_id', projectIds)
-                .order('created_at', { ascending: false })
-            : Promise.resolve({ data: [], error: null }),
-
-          // Leads - query by chatbot IDs (need to fetch chatbots first, but for simplicity, skip for now)
-          Promise.resolve({ data: [], error: null }),
-
-          // Analytics - query by project IDs
-          projectIds.length > 0
-            ? supabase
-                .from('analytics')
-                .select('*')
-                .in('project_id', projectIds)
-                .order('date', { ascending: false })
-            : Promise.resolve({ data: [], error: null }),
-
-          // Requests - query by project IDs
-          projectIds.length > 0
-            ? supabase
-                .from('requests')
-                .select('*')
-                .in('project_id', projectIds)
-                .order('created_at', { ascending: false })
+            ? supabase.from('leads').select(`
+                *,
+                chatbots(
+                  projects(
+                    end_clients(creator_id)
+                  )
+                )
+              `).eq('chatbots.projects.end_clients.creator_id', creator.id).order('created_at', { ascending: false })
             : Promise.resolve({ data: [], error: null }),
 
           // Assets - query by creator ID
@@ -141,12 +119,7 @@ export const useCreatorDashboard = (userId: string | null) => {
         ]);
 
         // Check for errors
-        if (clientsError) throw new Error(`Failed to fetch clients: ${clientsError.message}`);
-        if (projectsError) throw new Error(`Failed to fetch projects: ${projectsError.message}`);
-        if (chatbotsError) throw new Error(`Failed to fetch chatbots: ${chatbotsError.message}`);
         if (leadsError) throw new Error(`Failed to fetch leads: ${leadsError.message}`);
-        if (analyticsError) throw new Error(`Failed to fetch analytics: ${analyticsError.message}`);
-        if (requestsError) throw new Error(`Failed to fetch requests: ${requestsError.message}`);
         if (assetsError) throw new Error(`Failed to fetch assets: ${assetsError.message}`);
 
         // Calculate statistics
@@ -188,6 +161,114 @@ export const useCreatorDashboard = (userId: string | null) => {
 
     fetchCreatorData();
   }, [userId]);
+
+  // Set up real-time subscriptions
+  useEffect(() => {
+    if (!userId || !data.creator) return;
+
+    console.log('[CreatorDashboard] Setting up real-time subscriptions');
+
+    const channel = supabase
+      .channel(`creator-dashboard-${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'requests',
+        },
+        (payload) => {
+          console.log('[CreatorDashboard] Request change detected:', payload);
+          debouncedRefresh();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'projects',
+        },
+        (payload) => {
+          console.log('[CreatorDashboard] Project change detected:', payload);
+          debouncedRefresh();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'assets',
+        },
+        (payload) => {
+          console.log('[CreatorDashboard] Asset change detected:', payload);
+          debouncedRefresh();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'analytics',
+        },
+        (payload) => {
+          console.log('[CreatorDashboard] Analytics change detected:', payload);
+          debouncedRefresh();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'end_clients',
+        },
+        (payload) => {
+          console.log('[CreatorDashboard] Client change detected:', payload);
+          debouncedRefresh();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'chatbots',
+        },
+        (payload) => {
+          console.log('[CreatorDashboard] Chatbot change detected:', payload);
+          debouncedRefresh();
+        }
+      )
+      .subscribe((status) => {
+        console.log('[CreatorDashboard] Subscription status:', status);
+      });
+
+    channelRef.current = channel;
+
+    return () => {
+      console.log('[CreatorDashboard] Cleaning up real-time subscriptions');
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, [userId, data.creator]);
+
+  const debouncedRefresh = () => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    
+    debounceTimeoutRef.current = setTimeout(() => {
+      console.log('[CreatorDashboard] Triggering debounced refresh');
+      fetchCreatorData();
+    }, 1000);
+  };
 
   // Helper functions
   const getProjectsForClient = (clientId: string) => {

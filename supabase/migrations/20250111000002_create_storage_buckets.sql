@@ -1,0 +1,10 @@
+-- Storage buckets analysis: No actual file uploads needed
+-- 
+-- Analysis shows:
+-- 1. ChatbotRequestForm has upload code but is only used in unused ChatbotRequests component
+-- 2. MediaLibrary only stores URLs/links, not actual files
+-- 3. Other components have file inputs but no actual upload logic
+-- 
+-- Therefore, no storage buckets are needed for the current application.
+-- 
+-- If file uploads are needed in the future, create buckets as needed.

@@ -28,7 +28,7 @@ const ShareClientPortal: React.FC<ShareClientPortalProps> = ({
   useEffect(() => {
     // Generate the portal URL
     const baseUrl = window.location.origin;
-    const url = `${baseUrl}/test-client/${projectId}`;
+    const url = `${baseUrl}/client/${projectId}`;
     setPortalUrl(url);
   }, [projectId]);
 

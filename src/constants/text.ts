@@ -82,18 +82,24 @@ export const TEXT = {
   // Support Subject Types
   SUPPORT_SUBJECTS: {
     TECHNICAL_SUPPORT: 'Technical Support',
-    MODIFICATION_REQUEST: 'Modification Request',
-    NEW_SCAN: 'New Scan',
-    ACCESS_ISSUES: 'Access Issues',
+    PROJECT_CREATION: 'Project Creation Help',
+    CLIENT_PORTAL: 'Client Portal Issues',
+    CHATBOT_SETUP: 'Chatbot Setup & Configuration',
+    PAYMENT_BILLING: 'Payment & Billing',
+    ACCOUNT_MANAGEMENT: 'Account Management',
+    FEATURE_REQUEST: 'Feature Request',
     OTHER: 'Other',
   },
 
   // Support Subject Values (for database)
   SUPPORT_SUBJECT_VALUES: {
     TECHNICAL_SUPPORT: 'technical_support',
-    MODIFICATION_REQUEST: 'modification_request',
-    NEW_SCAN: 'new_scan',
-    ACCESS_ISSUES: 'access_issues',
+    PROJECT_CREATION: 'project_creation',
+    CLIENT_PORTAL: 'client_portal',
+    CHATBOT_SETUP: 'chatbot_setup',
+    PAYMENT_BILLING: 'payment_billing',
+    ACCOUNT_MANAGEMENT: 'account_management',
+    FEATURE_REQUEST: 'feature_request',
     OTHER: 'other',
   },
 
@@ -161,11 +167,11 @@ export const TEXT = {
 
   // File Upload
   FILE_UPLOAD: {
-    ATTACH_FILES_DROPBOX: 'Attach files via Dropbox',
-    UPLOAD_FILES_SECURELY: 'Upload your files securely via Dropbox',
+    ATTACH_FILES_DROPBOX: 'Share files via cloud storage',
+    UPLOAD_FILES_SECURELY: 'Share your files securely via Google Drive, Dropbox, or WeTransfer',
     FILES_AUTO_ORGANIZED: 'Files will be automatically organized for your request',
-    OPEN_DROPBOX_REQUEST: 'Open Dropbox File Request',
-    FILE_NAMING_INSTRUCTIONS: 'File naming instructions:',
+    OPEN_DROPBOX_REQUEST: 'Share Files via Cloud Storage',
+    FILE_NAMING_INSTRUCTIONS: 'File sharing instructions:',
     FILL_CLIENT_TYPE_FIRST: 'Fill in "Client/Project Name" and "Request Type" first to generate correct instructions',
     ALWAYS_START_FILENAME: 'Always start the filename with:',
     EXAMPLE_FILENAME: 'Example: "HOTSPOT_Smith-John_REQ-123_kitchen-photo.jpg"',
@@ -186,14 +192,18 @@ export const TEXT = {
 
   // FAQ
   FAQ: {
-    DOWNLOAD_PHOTOS_QUESTION: 'How can I download high-resolution photos?',
-    DOWNLOAD_PHOTOS_ANSWER: 'You can download high-resolution photos by accessing the \'Asset Library\' section and selecting the desired category. Click \'Download All\' to get all photos in original format.',
-    REQUEST_UPDATE_QUESTION: 'How do I request an update to the virtual tour?',
-    REQUEST_UPDATE_ANSWER: 'Go to the \'Client Requests\' section and click \'New Request\'. Fill out the form specifying the type of update you want (hotspot, content, scan).',
-    RESPONSE_TIMES_QUESTION: 'What are the response times for support requests?',
-    RESPONSE_TIMES_ANSWER: 'Response times vary by type: Technical Support (24-48h), Modification Requests (3-5 business days), New Scans (7-10 business days).',
-    EMBED_TOUR_QUESTION: 'Can I embed the virtual tour on my website?',
-    EMBED_TOUR_ANSWER: 'Yes, each virtual tour includes an embed code that you can copy and paste into your website. The code is available in the tour details section.',
+    CREATE_FIRST_PROJECT_QUESTION: 'How do I create my first virtual tour project?',
+    CREATE_FIRST_PROJECT_ANSWER: 'Go to the Projects section and click "Create New Project". Fill in the project details, select a client, choose the project type (Virtual Tour, 3D Showcase, or Interactive Map), and add a description. Your project will be created and ready for customization.',
+    CLIENT_PORTAL_ACCESS_QUESTION: 'How do my clients access their portal?',
+    CLIENT_PORTAL_ACCESS_ANSWER: 'After creating a project, you can share the client portal link with your clients. They can use this link to view their projects, submit requests, and interact with chatbots. The portal is automatically generated for each project.',
+    CHATBOT_SETUP_QUESTION: 'How do I set up a chatbot for my client?',
+    CHATBOT_SETUP_ANSWER: 'Go to the Chatbots section, click "Create Client Chatbot", and fill in the client information. Configure the chatbot\'s knowledge base, customize its appearance to match your client\'s brand, and activate it. The chatbot will automatically appear on your client\'s portal.',
+    REQUEST_TYPES_QUESTION: 'What types of requests can clients submit?',
+    REQUEST_TYPES_ANSWER: 'Clients can submit various types of requests: Hotspot Updates (add interactive points), Content Changes (modify text/images), Design Modifications (change layout/styling), New Features (request additional functionality), and Bug Fixes (report issues).',
+    NOTIFICATIONS_QUESTION: 'How do I get notified about new client requests?',
+    NOTIFICATIONS_ANSWER: 'You\'ll receive real-time notifications through the notification bell in the top navigation. Click the bell to see recent requests, or click "See All Notifications" to view the full notification panel with search and filtering options.',
+    PROJECT_SHARING_QUESTION: 'How do I share a project with my client?',
+    PROJECT_SHARING_ANSWER: 'Each project has a unique sharing link that you can send to your client. Go to the project details, click "Share Client Portal", and copy the generated link. Your client can use this link to access their dedicated portal.',
   },
 
   // Contact
@@ -276,9 +286,9 @@ export const TEXT = {
     // Knowledge Base
     KNOWLEDGE_BASE: 'Knowledge Base',
     PASTED_TEXT: 'Pasted Text',
-    FILE_UPLOADS: 'File Uploads',
-    UPLOAD_FILES: 'Upload Files',
-    DRAG_DROP_FILES: 'Drag and drop files here, or click to select',
+    FILE_UPLOADS: 'File Sharing',
+    UPLOAD_FILES: 'Share Files',
+    DRAG_DROP_FILES: 'Share files via Google Drive, Dropbox, or WeTransfer',
     
     // Response Settings
     RESPONSE_SETTINGS: 'Response Settings',
@@ -506,18 +516,21 @@ export const TEXT = {
     
     // Tutorial Content
     TUTORIALS: {
-      INTRODUCTION_VIRTUAL_TOURS: 'Introduction to Virtual Tours',
-      ADVANCED_SHOOTING_TECHNIQUES: 'Advanced Shooting Techniques',
-      POST_PRODUCTION_EDITING: 'Post-Production and Editing',
-      MARKETING_VIRTUAL_TOURS: 'Marketing for Virtual Tours',
+      PLATFORM_OVERVIEW: 'Platform Overview & Getting Started',
+      PROJECT_MANAGEMENT: 'Project Management Best Practices',
+      CLIENT_PORTAL_SETUP: 'Setting Up Client Portals',
+      CHATBOT_CONFIGURATION: 'Chatbot Configuration & Customization',
+      ANALYTICS_INSIGHTS: 'Understanding Analytics & Insights',
+      NOTIFICATION_SYSTEM: 'Managing Notifications & Requests',
     },
     
     // Guide Content
     GUIDES: {
-      COMPLETE_GUIDE: 'Complete Guide to Virtual Tours',
-      TECHNICAL_MANUAL: 'Technical Manual',
-      MARKETING_STRATEGIES: 'Marketing Strategies',
-      BUSINESS_GUIDE: 'Business Guide',
+      QUICK_START_GUIDE: 'Quick Start Guide for Tour Creators',
+      CLIENT_MANAGEMENT: 'Client Management & Communication',
+      CHATBOT_BEST_PRACTICES: 'Chatbot Best Practices & Optimization',
+      ANALYTICS_GUIDE: 'Analytics & Performance Tracking',
+      PLATFORM_FEATURES: 'Complete Platform Features Guide',
     },
   },
 
@@ -726,9 +739,9 @@ export const TEXT = {
     // Knowledge Base
     KNOWLEDGE_BASE_TITLE: 'Client Knowledge Base',
     PASTED_TEXT: 'Pasted Text',
-    FILE_UPLOADS: 'File Uploads',
+    FILE_UPLOADS: 'File Sharing',
     ADD_TEXT: 'Add Text',
-    UPLOAD_FILES: 'Upload Files',
+    UPLOAD_FILES: 'Share Files',
     
     // Response Settings
     RESPONSE_SETTINGS: 'Response Settings',
@@ -825,11 +838,11 @@ export const TEXT = {
     CHATBOT_ACTIVATED_DESCRIPTION: 'Your client chatbot is now active',
     CHATBOT_DEACTIVATED: 'Chatbot Deactivated',
     CHATBOT_DEACTIVATED_DESCRIPTION: 'Your client chatbot has been deactivated',
-    FILES_UPLOADED: 'Files Uploaded',
+    FILES_UPLOADED: 'Files Shared',
     ERROR_CREATING_CHATBOT: 'Failed to create chatbot',
     ERROR_UPDATING_CHATBOT: 'Failed to update chatbot',
     ERROR_DELETING_CHATBOT: 'Failed to delete chatbot',
-    ERROR_UPLOADING_FILES: 'Failed to upload files',
+    ERROR_UPLOADING_FILES: 'Failed to share files',
     
     // Analytics
     CONVERSATION_ANALYTICS: 'Conversation Analytics',

@@ -17,6 +17,7 @@ const Auth = () => {
   
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'signin' | 'signup'>('signin');
+  const [justSignedUp, setJustSignedUp] = useState(false);
 
   // Sign in form state
   const [signInData, setSignInData] = useState({
@@ -63,13 +64,37 @@ const Auth = () => {
           .single();
 
         if (creatorError || !creatorData) {
-          toast({
-            title: 'Profile Not Found',
-            description: 'No creator profile found. Please sign up first.',
-            variant: 'destructive',
-          });
-          await supabase.auth.signOut();
-          return;
+          // If no profile found, try to create one (user might have confirmed email)
+          if (data.user.email_confirmed_at) {
+            const { error: createError } = await supabase
+              .from('creators')
+              .insert({
+                user_id: data.user.id,
+                agency_name: data.user.user_metadata?.agency_name || 'My Agency',
+                contact_email: data.user.email,
+                subscription_plan: 'basic',
+                subscription_status: 'active',
+              });
+
+            if (createError) {
+              console.error('Failed to create creator profile:', createError);
+              toast({
+                title: 'Account Setup Issue',
+                description: 'Your account was created but profile setup failed. Please try signing out and back in, or contact support if the issue persists.',
+                variant: 'destructive',
+              });
+              await supabase.auth.signOut();
+              return;
+            }
+          } else {
+            toast({
+              title: '📧 Email Confirmation Required',
+              description: 'Please check your email and click the confirmation link before signing in. We sent it to ' + data.user.email,
+              variant: 'destructive',
+            });
+            await supabase.auth.signOut();
+            return;
+          }
         }
 
         toast({
@@ -77,6 +102,8 @@ const Auth = () => {
           description: `Signed in successfully as ${creatorData.agency_name}`,
         });
 
+        // Clear the signup flag
+        setJustSignedUp(false);
         navigate('/');
       }
     } catch (error) {
@@ -131,6 +158,8 @@ const Auth = () => {
         signUpData.password,
         {
           agency_name: signUpData.agencyName,
+          phone: signUpData.phone,
+          website: signUpData.website,
         }
       );
 
@@ -144,29 +173,43 @@ const Auth = () => {
       }
 
       if (authData?.user) {
-        // Create creator profile in database
-        const { error: creatorError } = await supabase
-          .from('creators')
-          .insert({
-            user_id: authData.user.id,
-            agency_name: signUpData.agencyName,
-            contact_email: signUpData.contactEmail,
-            phone: signUpData.phone || null,
-            website: signUpData.website || null,
-            subscription_plan: 'basic',
-            subscription_status: 'active',
+        console.log('User created:', authData.user.email, 'Confirmed:', authData.user.email_confirmed_at);
+        
+        // Check if email confirmation is required
+        if (authData.user.email_confirmed_at === null) {
+          toast({
+            title: '📧 Check Your Email for Confirmation!',
+            description: 'We sent you a confirmation link at ' + signUpData.email + '. Please check your inbox and click the link to activate your account. You can then sign in below.',
+            variant: 'default',
+          });
+          
+          // Set flag to show confirmation message
+          setJustSignedUp(true);
+          
+          // Switch to sign in tab
+          setActiveTab('signin');
+          setSignInData({
+            email: signUpData.email,
+            password: signUpData.password,
           });
 
-        if (creatorError) {
-          console.error('Creator profile creation error:', creatorError);
-          toast({
-            title: 'Profile Creation Error',
-            description: 'Account created but profile setup failed. Please contact support.',
-            variant: 'destructive',
+          // Reset sign up form
+          setSignUpData({
+            email: '',
+            password: '',
+            confirmPassword: '',
+            agencyName: '',
+            contactEmail: '',
+            phone: '',
+            website: '',
           });
           return;
         }
 
+        // This should never happen since email confirmation is required
+        // But if it does, the database trigger will handle profile creation
+        console.log('Unexpected: User email already confirmed during signup');
+        
         toast({
           title: 'Account Created!',
           description: 'Your creator account has been set up successfully. You can now sign in.',
@@ -229,6 +272,15 @@ const Auth = () => {
 
               {/* Sign In Tab */}
               <TabsContent value="signin">
+                {justSignedUp && signInData.email && (
+                  <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <p className="text-sm text-blue-800 dark:text-blue-200">
+                      <strong>📧 Email confirmation required!</strong><br/>
+                      We sent a confirmation link to <strong>{signInData.email}</strong>. 
+                      Please check your inbox and click the link before signing in.
+                    </p>
+                  </div>
+                )}
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="signin-email">Email</Label>

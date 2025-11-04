@@ -24,6 +24,8 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { TEXT } from '@/constants/text';
+import { useRecentActivity } from '@/hooks/useRecentActivity';
+import RecentActivity from '@/components/RecentActivity';
 
 interface Client {
   id: string;
@@ -56,6 +58,12 @@ interface ClientDashboardProps {
 const ClientDashboard: React.FC<ClientDashboardProps> = ({ client, onBack }) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Use real activity data for this client
+  const { activities, loading: activitiesLoading, error: activitiesError, refresh: refreshActivities } = useRecentActivity({
+    clientId: client.id,
+    limit: 10
+  });
 
   // Production ready - No sample data
   const analyticsData = {
@@ -109,23 +117,23 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ client, onBack }) => 
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4 flex-1 min-w-0">
           <Button 
             variant="outline" 
             size="sm" 
             onClick={onBack}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 flex-shrink-0"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Projects
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">{client.name}</h1>
-            <p className="text-foreground-secondary">{client.company} • Client Dashboard</p>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-3xl font-bold text-foreground truncate">{client.name}</h1>
+            <p className="text-foreground-secondary truncate">{client.company} • Client Dashboard</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <Badge variant={client.status === 'active' ? 'default' : 'secondary'}>
             {client.status}
           </Badge>
@@ -142,7 +150,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ client, onBack }) => 
           <CardContent>
             <div className="text-2xl font-bold">{analyticsData.totalViews}</div>
             <p className="text-xs text-muted-foreground">
-              +12% from last month
+              Real-time view data
             </p>
           </CardContent>
         </Card>
@@ -155,7 +163,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ client, onBack }) => 
           <CardContent>
             <div className="text-2xl font-bold">{analyticsData.uniqueVisitors}</div>
             <p className="text-xs text-muted-foreground">
-              +8% from last month
+              Real-time visitor data
             </p>
           </CardContent>
         </Card>
@@ -168,7 +176,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ client, onBack }) => 
           <CardContent>
             <div className="text-2xl font-bold">{analyticsData.avgSessionDuration}</div>
             <p className="text-xs text-muted-foreground">
-              +15% from last month
+              Real-time session data
             </p>
           </CardContent>
         </Card>
@@ -181,7 +189,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ client, onBack }) => 
           <CardContent>
             <div className="text-2xl font-bold">{analyticsData.satisfactionScore}/5</div>
             <p className="text-xs text-muted-foreground">
-              Based on 24 reviews
+              Real-time satisfaction data
             </p>
           </CardContent>
         </Card>
@@ -218,7 +226,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ client, onBack }) => 
             <div className="text-2xl font-bold">{analyticsData.conversionRate}%</div>
             <Progress value={analyticsData.conversionRate} className="mt-2" />
             <p className="text-xs text-muted-foreground mt-1">
-              Above industry average
+              Real-time conversion data
             </p>
           </CardContent>
         </Card>
@@ -230,9 +238,9 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ client, onBack }) => 
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{analyticsData.bounceRate}%</div>
-            <Progress value={100 - analyticsData.bounceRate} className="mt-2" />
+            <Progress value={analyticsData.bounceRate} className="mt-2" />
             <p className="text-xs text-muted-foreground mt-1">
-              Below industry average
+              Real-time bounce rate data
             </p>
           </CardContent>
         </Card>
@@ -343,56 +351,16 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ client, onBack }) => 
 
       {/* Recent Activity */}
       <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold text-foreground">Recent Activity</h2>
-          <p className="text-foreground-secondary">Latest updates and interactions</p>
-        </div>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-full">
-                  <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Project "Modern Office Space" went live</p>
-                  <p className="text-xs text-muted-foreground">2 hours ago</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-full">
-                  <Eye className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">15 new views on "Conference Room Setup"</p>
-                  <p className="text-xs text-muted-foreground">4 hours ago</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-yellow-100 dark:bg-yellow-900/20 rounded-full">
-                  <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">"Reception Area Design" is ready for review</p>
-                  <p className="text-xs text-muted-foreground">1 day ago</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-100 dark:bg-purple-900/20 rounded-full">
-                  <Award className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Project milestone achieved: 100+ total views</p>
-                  <p className="text-xs text-muted-foreground">2 days ago</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <RecentActivity
+          activities={activities}
+          loading={activitiesLoading}
+          error={activitiesError}
+          onRefresh={refreshActivities}
+          title="Recent Activity"
+          description="Latest updates and interactions for this client"
+          showStats={true}
+          maxItems={8}
+        />
       </div>
     </div>
   );

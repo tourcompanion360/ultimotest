@@ -50,8 +50,6 @@ const Index = () => {
       case 'analytics':
         return <Dashboard />;
       case 'chatbots':
-        return <ChatbotManagement />;
-      case 'chatbot-requests':
         return <ChatbotRequests />;
       case 'support':
         return <Support />;

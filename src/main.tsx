@@ -1,12 +1,33 @@
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
-import { registerServiceWorker, handleInstallPrompt, setupOfflineDetection } from './utils/pwaUtils'
+import { registerServiceWorker, setupOfflineDetection } from './utils/pwaUtils'
+
+// Ensure favicon loads immediately
+const updateFavicon = () => {
+  const favicon = document.querySelector('link[rel="shortcut icon"]') as HTMLLinkElement;
+  if (favicon) {
+    favicon.href = '/favicon.ico?v=' + Date.now();
+  }
+  
+  // Also update other favicon links
+  const faviconPng = document.querySelector('link[rel="icon"][type="image/png"]') as HTMLLinkElement;
+  if (faviconPng) {
+    faviconPng.href = '/favicon-96x96.png?v=' + Date.now();
+  }
+  
+  const faviconSvg = document.querySelector('link[rel="icon"][type="image/svg+xml"]') as HTMLLinkElement;
+  if (faviconSvg) {
+    faviconSvg.href = '/favicon.svg?v=' + Date.now();
+  }
+};
+
+// Update favicon immediately when the app loads
+updateFavicon();
 
 // Initialize PWA features only in production to avoid dev caching/blank screens
 if (import.meta.env.PROD) {
   registerServiceWorker();
-  handleInstallPrompt();
   setupOfflineDetection();
 } else {
   // In development, proactively unregister any existing service workers

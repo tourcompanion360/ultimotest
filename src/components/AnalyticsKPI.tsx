@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,8 @@ import { Eye, Users, MousePointer, TrendingUp, TrendingDown, Clock, BarChart3 } 
 import { supabase } from '@/integrations/supabase/client';
 import { TEXT } from '@/constants/text';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { useCreatorDashboard } from '@/hooks/useCreatorDashboard';
 
 interface KPIData {
   totalViews: number;
@@ -22,103 +24,74 @@ interface KPIData {
 
 const AnalyticsKPI: React.FC = () => {
   const { toast } = useToast();
-  const [kpiData, setKpiData] = useState<KPIData>({
-    totalViews: 0,
-    uniqueVisitors: 0,
-    totalClicks: 0,
-    conversionRate: 0,
-    avgSessionDuration: 0,
-    bounceRate: 0,
-    viewsChange: 0,
-    visitorsChange: 0,
-    clicksChange: 0,
-    conversionChange: 0
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
+  const { analytics, isLoading, error, refreshData } = useCreatorDashboard(user?.id || '');
   const [timeRange, setTimeRange] = useState('7d');
+  
+  // Real-time subscription setup
+  const channelRef = useRef<any>(null);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Calculate KPI data from real analytics
+  const kpiData: KPIData = {
+    totalViews: analytics?.reduce((sum, a) => sum + (a.views || 0), 0) || 0,
+    uniqueVisitors: analytics?.reduce((sum, a) => sum + (a.unique_visitors || 0), 0) || 0,
+    totalClicks: analytics?.reduce((sum, a) => sum + (a.clicks || 0), 0) || 0,
+    conversionRate: analytics?.length > 0 ? analytics.reduce((sum, a) => sum + (a.conversion_rate || 0), 0) / analytics.length : 0,
+    avgSessionDuration: analytics?.length > 0 ? analytics.reduce((sum, a) => sum + (a.avg_session_duration || 0), 0) / analytics.length : 0,
+    bounceRate: analytics?.length > 0 ? analytics.reduce((sum, a) => sum + (a.bounce_rate || 0), 0) / analytics.length : 0,
+    viewsChange: 0, // TODO: Calculate from historical data
+    visitorsChange: 0, // TODO: Calculate from historical data
+    clicksChange: 0, // TODO: Calculate from historical data
+    conversionChange: 0, // TODO: Calculate from historical data
+  };
 
+  // Set up real-time subscriptions for analytics
   useEffect(() => {
-    loadKPIData();
-  }, [timeRange]);
+    if (!user?.id) return;
 
-  const loadKPIData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Calculate date range
-      const endDate = new Date();
-      const startDate = new Date();
-      
-      switch (timeRange) {
-        case '7d':
-          startDate.setDate(endDate.getDate() - 7);
-          break;
-        case '30d':
-          startDate.setDate(endDate.getDate() - 30);
-          break;
-        case '90d':
-          startDate.setDate(endDate.getDate() - 90);
-          break;
-        case '1y':
-          startDate.setDate(endDate.getDate() - 365);
-          break;
-        default:
-          startDate.setDate(endDate.getDate() - 7);
+    console.log('[AnalyticsKPI] Setting up real-time subscriptions');
+
+    const channel = supabase
+      .channel(`analytics-kpi-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'analytics',
+        },
+        (payload) => {
+          console.log('[AnalyticsKPI] Analytics change detected:', payload);
+          debouncedRefresh();
+        }
+      )
+      .subscribe((status) => {
+        console.log('[AnalyticsKPI] Subscription status:', status);
+      });
+
+    channelRef.current = channel;
+
+    return () => {
+      console.log('[AnalyticsKPI] Cleaning up real-time subscriptions');
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
       }
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, [user?.id]);
 
-      // Fetch analytics data from Supabase
-      const { data: analyticsData, error } = await supabase
-        .from('analytics')
-        .select('*')
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString())
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      // Calculate KPIs from the data
-      const totalViews = analyticsData?.reduce((sum, record) => sum + (record.views || 0), 0) || 0;
-      const uniqueVisitors = analyticsData?.reduce((sum, record) => sum + (record.unique_visitors || 0), 0) || 0;
-      const totalClicks = analyticsData?.reduce((sum, record) => sum + (record.clicks || 0), 0) || 0;
-      const conversionRate = totalViews > 0 ? (totalClicks / totalViews) * 100 : 0;
-      const avgSessionDuration = analyticsData && analyticsData.length > 0 
-        ? analyticsData.reduce((sum, record) => sum + (record.session_duration || 0), 0) / analyticsData.length 
-        : 0;
-      const bounceRate = analyticsData && analyticsData.length > 0 
-        ? analyticsData.reduce((sum, record) => sum + (record.bounce_rate || 0), 0) / analyticsData.length 
-        : 0;
-
-      // Calculate changes (simplified - in real app, compare with previous period)
-      const viewsChange = 0; // Production ready - no random data
-      const visitorsChange = 0; // Production ready - no random data
-      const clicksChange = 0; // Production ready - no random data
-      const conversionChange = 0; // Production ready - no random data
-
-      setKpiData({
-        totalViews,
-        uniqueVisitors,
-        totalClicks,
-        conversionRate,
-        avgSessionDuration,
-        bounceRate,
-        viewsChange,
-        visitorsChange,
-        clicksChange,
-        conversionChange
-      });
-    } catch (error) {
-      console.error('Error loading KPI data:', error);
-      setError(TEXT.ANALYTICS.ERROR_LOADING_ANALYTICS);
-      toast({
-        title: TEXT.TOAST.ERROR,
-        description: TEXT.ANALYTICS.ERROR_LOADING_ANALYTICS,
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
+  const debouncedRefresh = () => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
     }
+    
+    debounceTimeoutRef.current = setTimeout(() => {
+      console.log('[AnalyticsKPI] Triggering debounced refresh');
+      refreshData();
+    }, 1000);
   };
 
   const formatNumber = (num: number) => {
@@ -192,7 +165,7 @@ const AnalyticsKPI: React.FC = () => {
     }
   ];
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center">
@@ -246,8 +219,8 @@ const AnalyticsKPI: React.FC = () => {
           <CardContent className="flex items-center justify-center py-12">
             <div className="text-center">
               <div className="text-destructive mb-2">{error}</div>
-              <Button onClick={loadKPIData} variant="outline">
-                Try Again
+              <Button onClick={() => window.location.reload()} variant="outline">
+                Reload Page
               </Button>
             </div>
           </CardContent>

@@ -88,3 +88,6 @@ CREATE POLICY "End clients can view assets for their projects" ON public.assets
       )
     )
   );
+
+
+

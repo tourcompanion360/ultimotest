@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, ChevronUp, Mail, Phone, Clock, CheckCircle2, PlayCircle, FileText, Download, Star, BookOpen, Video, GraduationCap } from 'lucide-react';
+import { ChevronDown, ChevronUp, Mail, MessageCircle, Clock, CheckCircle2, PlayCircle, FileText, Download, Star, BookOpen, Video, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -32,70 +32,95 @@ const Support = () => {
   const videoTutorials = [
     {
       id: 1,
-      title: TEXT.ACADEMY.TUTORIALS.INTRODUCTION_VIRTUAL_TOURS,
-      duration: "15 min",
+      title: TEXT.ACADEMY.TUTORIALS.PLATFORM_OVERVIEW,
+      duration: "12 min",
       level: TEXT.ACADEMY.LEVELS.BEGINNER,
       thumbnail: "/api/placeholder/300/180",
       youtubeId: "dQw4w9WgXcQ",
-      description: "Learn the basics to create your first virtual tour"
+      description: "Get started with the platform and understand the main features"
     },
     {
       id: 2,
-      title: TEXT.ACADEMY.TUTORIALS.ADVANCED_SHOOTING_TECHNIQUES,
-      duration: "22 min",
+      title: TEXT.ACADEMY.TUTORIALS.PROJECT_MANAGEMENT,
+      duration: "18 min",
       level: TEXT.ACADEMY.LEVELS.INTERMEDIATE,
       thumbnail: "/api/placeholder/300/180",
       youtubeId: "dQw4w9WgXcQ",
-      description: "Discover professional techniques for quality shooting"
+      description: "Learn best practices for managing multiple client projects"
     },
     {
       id: 3,
-      title: TEXT.ACADEMY.TUTORIALS.POST_PRODUCTION_EDITING,
-      duration: "18 min",
-      level: TEXT.ACADEMY.LEVELS.ADVANCED,
-      thumbnail: "/api/placeholder/300/180",
-      youtubeId: "dQw4w9WgXcQ",
-      description: "Master editing and post-production of virtual tours"
-    },
-    {
-      id: 4,
-      title: TEXT.ACADEMY.TUTORIALS.MARKETING_VIRTUAL_TOURS,
-      duration: "25 min",
+      title: TEXT.ACADEMY.TUTORIALS.CLIENT_PORTAL_SETUP,
+      duration: "15 min",
       level: TEXT.ACADEMY.LEVELS.INTERMEDIATE,
       thumbnail: "/api/placeholder/300/180",
       youtubeId: "dQw4w9WgXcQ",
-      description: "How to effectively promote your services"
+      description: "Set up and customize client portals for seamless communication"
+    },
+    {
+      id: 4,
+      title: TEXT.ACADEMY.TUTORIALS.CHATBOT_CONFIGURATION,
+      duration: "20 min",
+      level: TEXT.ACADEMY.LEVELS.ADVANCED,
+      thumbnail: "/api/placeholder/300/180",
+      youtubeId: "dQw4w9WgXcQ",
+      description: "Configure and customize AI chatbots for your clients"
+    },
+    {
+      id: 5,
+      title: TEXT.ACADEMY.TUTORIALS.ANALYTICS_INSIGHTS,
+      duration: "14 min",
+      level: TEXT.ACADEMY.LEVELS.INTERMEDIATE,
+      thumbnail: "/api/placeholder/300/180",
+      youtubeId: "dQw4w9WgXcQ",
+      description: "Understand analytics data and track project performance"
+    },
+    {
+      id: 6,
+      title: TEXT.ACADEMY.TUTORIALS.NOTIFICATION_SYSTEM,
+      duration: "10 min",
+      level: TEXT.ACADEMY.LEVELS.BEGINNER,
+      thumbnail: "/api/placeholder/300/180",
+      youtubeId: "dQw4w9WgXcQ",
+      description: "Manage notifications and stay on top of client requests"
     }
   ];
 
   const pdfGuides = [
     {
       id: 1,
-      title: TEXT.ACADEMY.GUIDES.COMPLETE_GUIDE,
-      pages: 45,
-      size: "2.3 MB",
-      description: "Complete guide covering all aspects of virtual tours"
+      title: TEXT.ACADEMY.GUIDES.QUICK_START_GUIDE,
+      pages: 25,
+      size: "1.8 MB",
+      description: "Complete quick start guide for new tour creators"
     },
     {
       id: 2,
-      title: TEXT.ACADEMY.GUIDES.TECHNICAL_MANUAL,
+      title: TEXT.ACADEMY.GUIDES.CLIENT_MANAGEMENT,
       pages: 32,
-      size: "1.8 MB",
-      description: "Technical specifications and equipment recommendations"
+      size: "2.1 MB",
+      description: "Best practices for client communication and management"
     },
     {
       id: 3,
-      title: TEXT.ACADEMY.GUIDES.MARKETING_STRATEGIES,
+      title: TEXT.ACADEMY.GUIDES.CHATBOT_BEST_PRACTICES,
       pages: 28,
-      size: "1.5 MB",
-      description: "Marketing strategies for virtual tour businesses"
+      size: "1.9 MB",
+      description: "Optimize your chatbots for better client engagement"
     },
     {
       id: 4,
-      title: TEXT.ACADEMY.GUIDES.BUSINESS_GUIDE,
-      pages: 38,
-      size: "2.1 MB",
-      description: "Business development and client management"
+      title: TEXT.ACADEMY.GUIDES.ANALYTICS_GUIDE,
+      pages: 22,
+      size: "1.6 MB",
+      description: "Understanding and using analytics to grow your business"
+    },
+    {
+      id: 5,
+      title: TEXT.ACADEMY.GUIDES.PLATFORM_FEATURES,
+      pages: 35,
+      size: "2.4 MB",
+      description: "Complete overview of all platform features and capabilities"
     }
   ];
 
@@ -113,20 +138,28 @@ const Support = () => {
 
   const faqItems = [
     {
-      question: TEXT.FAQ.DOWNLOAD_PHOTOS_QUESTION,
-      answer: TEXT.FAQ.DOWNLOAD_PHOTOS_ANSWER
+      question: TEXT.FAQ.CREATE_FIRST_PROJECT_QUESTION,
+      answer: TEXT.FAQ.CREATE_FIRST_PROJECT_ANSWER
     },
     {
-      question: TEXT.FAQ.REQUEST_UPDATE_QUESTION,
-      answer: TEXT.FAQ.REQUEST_UPDATE_ANSWER
+      question: TEXT.FAQ.CLIENT_PORTAL_ACCESS_QUESTION,
+      answer: TEXT.FAQ.CLIENT_PORTAL_ACCESS_ANSWER
     },
     {
-      question: TEXT.FAQ.RESPONSE_TIMES_QUESTION,
-      answer: TEXT.FAQ.RESPONSE_TIMES_ANSWER
+      question: TEXT.FAQ.CHATBOT_SETUP_QUESTION,
+      answer: TEXT.FAQ.CHATBOT_SETUP_ANSWER
     },
     {
-      question: TEXT.FAQ.EMBED_TOUR_QUESTION,
-      answer: TEXT.FAQ.EMBED_TOUR_ANSWER
+      question: TEXT.FAQ.REQUEST_TYPES_QUESTION,
+      answer: TEXT.FAQ.REQUEST_TYPES_ANSWER
+    },
+    {
+      question: TEXT.FAQ.NOTIFICATIONS_QUESTION,
+      answer: TEXT.FAQ.NOTIFICATIONS_ANSWER
+    },
+    {
+      question: TEXT.FAQ.PROJECT_SHARING_QUESTION,
+      answer: TEXT.FAQ.PROJECT_SHARING_ANSWER
     }
   ];
 
@@ -245,9 +278,12 @@ const Support = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="technical_support">{TEXT.SUPPORT_SUBJECTS.TECHNICAL_SUPPORT}</SelectItem>
-                  <SelectItem value="modification_request">{TEXT.SUPPORT_SUBJECTS.MODIFICATION_REQUEST}</SelectItem>
-                  <SelectItem value="new_scan">{TEXT.SUPPORT_SUBJECTS.NEW_SCAN}</SelectItem>
-                  <SelectItem value="access_issues">{TEXT.SUPPORT_SUBJECTS.ACCESS_ISSUES}</SelectItem>
+                  <SelectItem value="project_creation">{TEXT.SUPPORT_SUBJECTS.PROJECT_CREATION}</SelectItem>
+                  <SelectItem value="client_portal">{TEXT.SUPPORT_SUBJECTS.CLIENT_PORTAL}</SelectItem>
+                  <SelectItem value="chatbot_setup">{TEXT.SUPPORT_SUBJECTS.CHATBOT_SETUP}</SelectItem>
+                  <SelectItem value="payment_billing">{TEXT.SUPPORT_SUBJECTS.PAYMENT_BILLING}</SelectItem>
+                  <SelectItem value="account_management">{TEXT.SUPPORT_SUBJECTS.ACCOUNT_MANAGEMENT}</SelectItem>
+                  <SelectItem value="feature_request">{TEXT.SUPPORT_SUBJECTS.FEATURE_REQUEST}</SelectItem>
                   <SelectItem value="other">{TEXT.SUPPORT_SUBJECTS.OTHER}</SelectItem>
                 </SelectContent>
               </Select>
@@ -314,11 +350,14 @@ const Support = () => {
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-3">
                     <h3 className="font-medium text-foreground">
-                      {ticket.subject === 'supporto-tecnico' && 'Technical Support'}
-                      {ticket.subject === 'richiesta-modifica' && 'Modification Request'}
-                      {ticket.subject === 'nuova-scansione' && 'New Scan'}
-                      {ticket.subject === 'problemi-accesso' && 'Access Issues'}
-                      {ticket.subject === 'altro' && 'Other'}
+                      {ticket.subject === 'technical_support' && 'Technical Support'}
+                      {ticket.subject === 'project_creation' && 'Project Creation Help'}
+                      {ticket.subject === 'client_portal' && 'Client Portal Issues'}
+                      {ticket.subject === 'chatbot_setup' && 'Chatbot Setup & Configuration'}
+                      {ticket.subject === 'payment_billing' && 'Payment & Billing'}
+                      {ticket.subject === 'account_management' && 'Account Management'}
+                      {ticket.subject === 'feature_request' && 'Feature Request'}
+                      {ticket.subject === 'other' && 'Other'}
                     </h3>
                     <Badge variant={getStatusBadgeVariant(ticket.status)}>
                       {getStatusLabel(ticket.status)}
@@ -366,10 +405,14 @@ const Support = () => {
           <Button 
             variant="outline" 
             className="flex items-center gap-2 h-12 bg-background-tertiary border-border hover:bg-accent"
-            onClick={() => window.open('tel:+393293763839', '_self')}
+            onClick={() => {
+              const phoneNumber = '393293763839'; // +39 329 376 3839
+              const whatsappUrl = `https://wa.me/${phoneNumber}`;
+              window.open(whatsappUrl, '_blank');
+            }}
           >
-            <Phone size={20} />
-            Call Support
+            <MessageCircle size={20} />
+            WhatsApp Chat
           </Button>
         </div>
       </Card>

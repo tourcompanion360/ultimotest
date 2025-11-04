@@ -2,9 +2,15 @@
 export const registerServiceWorker = () => {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js')
+      // Detect if we're in a client portal
+      const isClientPortal = window.location.pathname.startsWith('/client/');
+      const scope = isClientPortal ? window.location.pathname : '/';
+      
+      console.log('Registering service worker with scope:', scope);
+      
+      navigator.serviceWorker.register('/sw.js', { scope })
         .then((registration) => {
-          console.log('SW registered: ', registration);
+          console.log('SW registered with scope:', scope, registration);
           
           // Check for updates
           registration.addEventListener('updatefound', () => {
@@ -13,7 +19,11 @@ export const registerServiceWorker = () => {
               newWorker.addEventListener('statechange', () => {
                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                   // New content is available, show update notification
-                  if (confirm('Nuova versione disponibile! Vuoi ricaricare per aggiornare?')) {
+                  const message = isClientPortal 
+                    ? 'New version available! Reload to update?' 
+                    : 'Nuova versione disponibile! Vuoi ricaricare per aggiornare?';
+                  
+                  if (confirm(message)) {
                     newWorker.postMessage({ type: 'SKIP_WAITING' });
                     window.location.reload();
                   }
@@ -34,79 +44,7 @@ export const registerServiceWorker = () => {
   }
 };
 
-// Handle install prompt
-export const handleInstallPrompt = () => {
-  let deferredPrompt: any;
-
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    
-    // Show install button or notification
-    showInstallButton(deferredPrompt);
-  });
-
-  window.addEventListener('appinstalled', () => {
-    console.log('PWA was installed');
-    deferredPrompt = null;
-    hideInstallButton();
-  });
-
-  return deferredPrompt;
-};
-
-// Show install button
-const showInstallButton = (deferredPrompt: any) => {
-  const installButton = document.createElement('button');
-  installButton.textContent = '📱 Installa App';
-  installButton.className = 'fixed bottom-20 right-4 bg-primary text-primary-foreground px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse';
-  installButton.style.cssText = `
-    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)));
-    color: white;
-    border: none;
-    padding: 12px 20px;
-    border-radius: 12px;
-    font-weight: 600;
-    box-shadow: 0 8px 25px hsl(var(--primary) / 0.4);
-    cursor: pointer;
-    transition: all 0.3s ease;
-  `;
-  
-  installButton.addEventListener('click', async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      console.log(`User response to the install prompt: ${outcome}`);
-      deferredPrompt = null;
-      installButton.remove();
-    }
-  });
-
-  installButton.addEventListener('mouseenter', () => {
-    installButton.style.transform = 'translateY(-2px) scale(1.05)';
-  });
-
-  installButton.addEventListener('mouseleave', () => {
-    installButton.style.transform = 'translateY(0) scale(1)';
-  });
-
-  document.body.appendChild(installButton);
-
-  // Auto-hide after 10 seconds
-  setTimeout(() => {
-    if (installButton.parentNode) {
-      installButton.remove();
-    }
-  }, 10000);
-};
-
-// Hide install button
-const hideInstallButton = () => {
-  const installButton = document.querySelector('[data-install-button]');
-  if (installButton) {
-    installButton.remove();
-  }
-};
+// PWA install prompt functionality removed - no more install popups
 
 // Check if running as PWA
 export const isPWA = () => {

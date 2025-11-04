@@ -9,14 +9,17 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { 
-  Upload, 
-  FileText, 
+  sanitizeTextInput, 
+  sanitizeTitle,
+  sanitizeDescription,
+  sanitizeUrl 
+} from '@/utils/inputValidation';
+import { 
   Bot, 
   Send, 
   CheckCircle,
   AlertCircle,
-  Loader2,
-  X
+  Loader2
 } from 'lucide-react';
 
 interface ChatbotRequestFormProps {
@@ -26,13 +29,6 @@ interface ChatbotRequestFormProps {
   onRequestSubmitted?: () => void;
 }
 
-interface UploadedFile {
-  id: string;
-  name: string;
-  size: number;
-  type: string;
-  url: string;
-}
 
 const ChatbotRequestForm: React.FC<ChatbotRequestFormProps> = ({
   projectId,
@@ -42,8 +38,6 @@ const ChatbotRequestForm: React.FC<ChatbotRequestFormProps> = ({
 }) => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
 
   const [formData, setFormData] = useState({
     // Basic Information
@@ -57,6 +51,7 @@ const ChatbotRequestForm: React.FC<ChatbotRequestFormProps> = ({
     existingContent: '',
     specificQuestions: '',
     businessInfo: '',
+    fileLinks: '',
     
     // Behavior & Style
     tone: 'professional',
@@ -77,85 +72,6 @@ const ChatbotRequestForm: React.FC<ChatbotRequestFormProps> = ({
     }));
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
-
-    setIsUploading(true);
-    const newFiles: UploadedFile[] = [];
-
-    try {
-      for (const file of Array.from(files)) {
-        // Upload to Supabase Storage
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-        const filePath = `chatbot-requests/${projectId}/${fileName}`;
-
-        const { data, error } = await supabase.storage
-          .from('chatbot-files')
-          .upload(filePath, file);
-
-        if (error) {
-          console.error('Upload error:', error);
-          toast({
-            title: 'Upload Failed',
-            description: `Failed to upload ${file.name}`,
-            variant: 'destructive'
-          });
-          continue;
-        }
-
-        // Get public URL
-        const { data: urlData } = supabase.storage
-          .from('chatbot-files')
-          .getPublicUrl(filePath);
-
-        newFiles.push({
-          id: fileName,
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          url: urlData.publicUrl
-        });
-      }
-
-      setUploadedFiles(prev => [...prev, ...newFiles]);
-      toast({
-        title: 'Files Uploaded',
-        description: `${newFiles.length} file(s) uploaded successfully`
-      });
-    } catch (error) {
-      console.error('File upload error:', error);
-      toast({
-        title: 'Upload Error',
-        description: 'Failed to upload files',
-        variant: 'destructive'
-      });
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const removeFile = async (fileId: string) => {
-    const file = uploadedFiles.find(f => f.id === fileId);
-    if (!file) return;
-
-    try {
-      // Remove from storage
-      const filePath = `chatbot-requests/${projectId}/${fileId}`;
-      await supabase.storage.from('chatbot-files').remove([filePath]);
-
-      // Remove from state
-      setUploadedFiles(prev => prev.filter(f => f.id !== fileId));
-      
-      toast({
-        title: 'File Removed',
-        description: `${file.name} has been removed`
-      });
-    } catch (error) {
-      console.error('Error removing file:', error);
-    }
-  };
 
   const handleSubmit = async () => {
     if (!formData.chatbotName || !formData.chatbotPurpose) {
@@ -170,27 +86,42 @@ const ChatbotRequestForm: React.FC<ChatbotRequestFormProps> = ({
     try {
       setIsSubmitting(true);
 
+      // Sanitize form data to prevent UI issues
+      const sanitizedData = {
+        chatbotName: sanitizeTitle(formData.chatbotName),
+        chatbotPurpose: sanitizeDescription(formData.chatbotPurpose),
+        chatbotPersonality: sanitizeTextInput(formData.chatbotPersonality || ''),
+        chatbotLanguage: formData.chatbotLanguage,
+        chatbotTone: formData.chatbotTone,
+        websiteUrl: sanitizeUrl(formData.websiteUrl || ''),
+        existingContent: sanitizeDescription(formData.existingContent || ''),
+        specificRequirements: sanitizeDescription(formData.specificRequirements || ''),
+        targetAudience: sanitizeTextInput(formData.targetAudience || ''),
+        integrationRequirements: sanitizeTextInput(formData.integrationRequirements || ''),
+        priority: formData.priority
+      };
+
       // Create chatbot request record
       const { data, error } = await supabase
         .from('chatbot_requests')
         .insert({
           project_id: projectId,
-          chatbot_name: formData.chatbotName,
-          chatbot_purpose: formData.chatbotPurpose,
-          target_audience: formData.targetAudience,
-          language: formData.language,
-          website_url: formData.websiteUrl,
-          existing_content: formData.existingContent,
-          specific_questions: formData.specificQuestions,
-          business_info: formData.businessInfo,
-          tone: formData.tone,
-          response_style: formData.responseStyle,
-          special_instructions: formData.specialInstructions,
-          priority: formData.priority,
+          chatbot_name: sanitizedData.chatbotName,
+          chatbot_purpose: sanitizedData.chatbotPurpose,
+          target_audience: sanitizedData.targetAudience,
+          language: sanitizedData.chatbotLanguage,
+          website_url: sanitizedData.websiteUrl,
+          existing_content: sanitizedData.existingContent,
+          specific_questions: sanitizedData.specificRequirements,
+          business_info: sanitizedData.chatbotPersonality,
+          tone: sanitizedData.chatbotTone,
+          response_style: sanitizedData.chatbotTone,
+          special_instructions: sanitizedData.integrationRequirements,
+          priority: sanitizedData.priority,
           preferred_contact_method: formData.preferredContactMethod,
           timeline: formData.timeline,
           additional_notes: formData.additionalNotes,
-          uploaded_files: uploadedFiles,
+          file_links: formData.fileLinks,
           status: 'pending',
           created_at: new Date().toISOString()
         })
@@ -214,6 +145,7 @@ const ChatbotRequestForm: React.FC<ChatbotRequestFormProps> = ({
         existingContent: '',
         specificQuestions: '',
         businessInfo: '',
+        fileLinks: '',
         tone: 'professional',
         responseStyle: 'helpful',
         specialInstructions: '',
@@ -222,7 +154,6 @@ const ChatbotRequestForm: React.FC<ChatbotRequestFormProps> = ({
         timeline: '',
         additionalNotes: ''
       });
-      setUploadedFiles([]);
 
       onRequestSubmitted?.();
     } catch (error: any) {
@@ -305,12 +236,13 @@ const ChatbotRequestForm: React.FC<ChatbotRequestFormProps> = ({
           <h3 className="text-lg font-semibold">Content & Knowledge Base</h3>
           <div className="space-y-2">
             <Label htmlFor="websiteUrl">Website URL</Label>
-            <Input
-              id="websiteUrl"
-              placeholder="https://your-website.com"
-              value={formData.websiteUrl}
-              onChange={(e) => handleInputChange('websiteUrl', e.target.value)}
-            />
+        <Input
+          id="websiteUrl"
+          placeholder="https://your-website.com"
+          value={formData.websiteUrl}
+          onChange={(e) => handleInputChange('websiteUrl', e.target.value)}
+          className="input-safe"
+        />
           </div>
           <div className="space-y-2">
             <Label htmlFor="existingContent">Existing Content/Information</Label>
@@ -344,72 +276,30 @@ const ChatbotRequestForm: React.FC<ChatbotRequestFormProps> = ({
           </div>
         </div>
 
-        {/* File Upload */}
+        {/* File Sharing */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Upload Files</h3>
-          <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6">
-            <div className="text-center">
-              <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+          <h3 className="text-lg font-semibold">Share Files</h3>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="file-links">Cloud Storage Links</Label>
               <p className="text-sm text-muted-foreground mb-2">
-                Upload documents, images, or other files for the chatbot
+                Paste links from Google Drive, Dropbox, WeTransfer, or other cloud storage services
               </p>
-              <input
-                type="file"
-                multiple
-                onChange={handleFileUpload}
-                className="hidden"
-                id="file-upload"
-                accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif"
+              <Textarea
+                id="file-links"
+                placeholder="https://drive.google.com/file/d/...&#10;https://www.dropbox.com/s/...&#10;https://wetransfer.com/downloads/..."
+                value={formData.fileLinks}
+                onChange={(e) => setFormData(prev => ({ ...prev, fileLinks: e.target.value }))}
+                rows={4}
+                className="resize-none"
               />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => document.getElementById('file-upload')?.click()}
-                disabled={isUploading}
-              >
-                {isUploading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="h-4 w-4 mr-2" />
-                    Choose Files
-                  </>
-                )}
-              </Button>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              <p>• One link per line</p>
+              <p>• Make sure links are publicly accessible or shared with appropriate permissions</p>
+              <p>• Supported: Google Drive, Dropbox, WeTransfer, OneDrive, and other cloud storage services</p>
             </div>
           </div>
-          
-          {uploadedFiles.length > 0 && (
-            <div className="space-y-2">
-              <Label>Uploaded Files</Label>
-              <div className="space-y-2">
-                {uploadedFiles.map((file) => (
-                  <div key={file.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-sm font-medium">{file.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {(file.size / 1024).toFixed(1)} KB
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeFile(file.id)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Behavior & Style */}

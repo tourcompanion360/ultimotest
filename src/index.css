@@ -3,95 +3,180 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Mobile-First Responsive Utilities */
+@layer utilities {
+  /* Hide scrollbars for mobile navigation */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Better text wrapping for long descriptions */
+  .overflow-wrap-anywhere {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    hyphens: auto;
+  }
+  
+  /* Prevent text overflow and badge overlap */
+  .text-overflow-safe {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  /* Safe badge positioning */
+  .badge-safe {
+    flex-shrink: 0;
+    margin-left: 0.5rem;
+  }
+  
+  /* Container with safe spacing for badges */
+  .badge-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+  
+  .badge-container > *:first-child {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .badge-container > *:last-child {
+    flex-shrink: 0;
+  }
+  
+  /* Handle long URLs and text in inputs */
+  .input-long-text {
+    word-break: break-all;
+    overflow-wrap: anywhere;
+  }
+  
+  /* Safe text display for long content */
+  .text-display-safe {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+  
+  /* For URLs and long strings */
+  .url-display {
+    word-break: break-all;
+    overflow-wrap: anywhere;
+    font-family: monospace;
+    font-size: 0.875rem;
+  }
+  
+  /* Universal text overflow protection */
+  .text-safe {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+  
+  /* Universal badge container protection */
+  .badge-container-safe {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+    flex-wrap: nowrap;
+  }
+  
+  .badge-container-safe > *:first-child {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+  
+  .badge-container-safe > *:last-child {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  
+  /* Universal card header protection */
+  .card-header-safe {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    min-width: 0;
+  }
+  
+  .card-header-safe > *:first-child {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .card-header-safe > *:last-child {
+    flex-shrink: 0;
+  }
+  
+  /* Universal input protection */
+  .input-safe {
+    word-break: break-all;
+    overflow-wrap: anywhere;
+    max-width: 100%;
+  }
+  
+  /* Universal name/company display protection */
+  .name-display-safe {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 200px;
+  }
+  
+  /* Universal email display protection */
+  .email-display-safe {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 250px;
+    font-size: 0.875rem;
+  }
+  
+  /* Universal company display protection */
+  .company-display-safe {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 180px;
+    font-size: 0.875rem;
+  }
+  
+  /* Extra small breakpoint for very small phones */
+  @media (min-width: 475px) {
+    .xs\:inline {
+      display: inline;
+    }
+  }
+  
+  /* Smooth transitions for mobile interactions */
+  .mobile-tap {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  
+  /* Better mobile spacing */
+  .mobile-safe-area {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
 /* PREMIUM ENTERPRISE DESIGN SYSTEM */
 
 @layer base {
   :root {
-    /* Premium Dark Theme - Ultra Sophisticated */
-    --background: 224 15% 4%;              /* Rich cosmic black */
-    --background-secondary: 225 14% 7%;     /* Deep space */  
-    --background-tertiary: 226 13% 10%;     /* Elevated surface */
-    --background-overlay: 225 20% 6% / 0.95; /* Glassmorphism base */
-    
-    --foreground: 215 30% 96%;              /* Pure crisp white */
-    --foreground-secondary: 216 25% 85%;    /* Refined silver */
-    --foreground-muted: 217 20% 65%;        /* Elegant gray */
-    --foreground-accent: 210 100% 85%;      /* Bright highlight */
-
-    /* Premium Brand Palette - Electric Blue Suite */
-    --primary: 214 100% 62%;                /* Vibrant electric blue */
-    --primary-light: 212 100% 70%;          /* Bright sky */
-    --primary-dark: 216 100% 54%;           /* Deep ocean */
-    --primary-hover: 213 95% 58%;           /* Interactive state */
-    --primary-foreground: 0 0% 100%;
-    --primary-glow: 214 100% 80%;           /* Luminous accent */
-
-    /* Sophisticated Accent System */
-    --accent: 225 12% 13%;                  /* Subtle elevation */
-    --accent-hover: 225 15% 18%;            /* Interactive surface */
-    --accent-foreground: 215 30% 96%;
-    --accent-bright: 214 100% 92%;          /* Highlight accent */
-
-    /* Premium Status Colors */
-    --success: 142 76% 45%;                 /* Emerald success */
-    --success-light: 142 76% 55%;
-    --warning: 38 92% 50%;                  /* Amber warning */
-    --warning-light: 38 92% 60%;
-    --error: 0 84% 60%;                     /* Refined red */
-    --error-light: 0 84% 70%;
-    --info: 214 100% 62%;                   /* Info blue */
-
-    /* Glass & Surface System */
-    --glass-background: 225 20% 15% / 0.7;  /* Glassmorphism */
-    --glass-border: 215 50% 80% / 0.1;      /* Subtle glass border */
-    --glass-shadow: 224 30% 2% / 0.5;       /* Premium shadows */
-    
-    /* Enhanced Borders */
-    --border: 225 15% 15%;                  /* Elegant boundary */
-    --border-hover: 225 20% 25%;            /* Interactive border */
-    --border-accent: 214 60% 50% / 0.3;     /* Glowing border */
-    --border-glow: 214 100% 70% / 0.4;      /* Premium glow */
-    
-    /* Input & Interactive */
-    --input: 225 14% 9%;                    /* Deep input field */
-    --input-border: 225 15% 20%;
-    --ring: 214 100% 62%;
-    --ring-offset: 224 15% 4%;
-
-    /* Sidebar Premium System */
-    --sidebar-background: 225 18% 5%;       /* Rich sidebar */
-    --sidebar-foreground: 215 30% 96%;
-    --sidebar-primary: 214 100% 62%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 225 15% 12%;
-    --sidebar-accent-foreground: 215 30% 96%;
-    --sidebar-border: 225 15% 12%;
-    --sidebar-ring: 214 100% 62%;
-    --sidebar-glow: 214 100% 70% / 0.1;     /* Subtle glow */
-
-    /* Premium Metric Cards */
-    --metric-blue: 214 100% 62%;            /* Primary blue */
-    --metric-cyan: 185 95% 55%;             /* Cyan accent */
-    --metric-violet: 265 89% 64%;           /* Purple accent */
-    --metric-emerald: 142 76% 45%;          /* Green accent */
-    --metric-amber: 38 92% 50%;             /* Amber accent */
-    --metric-rose: 350 89% 60%;             /* Rose accent */
-
-    /* Premium Card System */
-    --card-background: 225 15% 8% / 0.9;    /* Premium card */
-    --card-border: 225 20% 15%;
-    --card-glow: 214 60% 50% / 0.05;        /* Subtle glow */
-    --card-hover: 225 15% 11%;              /* Hover state */
-
-    /* Typography & Spacing */
-    --radius: 1rem;                         /* Generous radius */
-    --radius-sm: 0.75rem;
-    --radius-lg: 1.25rem;
-    --radius-xl: 1.5rem;
-  }
-
-  .light {
-    /* Premium Light Theme - Clean & Sophisticated */
+    /* Premium Light Theme - Clean & Sophisticated (Default) */
     --background: 0 0% 99%;                 /* Pure white */
     --background-secondary: 220 20% 97%;    /* Subtle gray */
     --background-tertiary: 220 15% 94%;     /* Light surface */
@@ -145,6 +230,111 @@
     --warning-light: 38 92% 50%;
     --error: 0 84% 45%;                     /* Darker red for light mode */
     --error-light: 0 84% 55%;
+    --info: 214 100% 62%;                   /* Info blue */
+    
+    /* Destructive colors for error states - High contrast */
+    --destructive: 0 84% 45%;               /* Dark red background */
+    --destructive-foreground: 0 0% 100%;    /* White text for contrast */
+    
+    /* Additional UI colors for better contrast */
+    --muted: 220 15% 85%;                   /* Muted background */
+    --muted-foreground: 225 10% 45%;        /* Muted text */
+    --secondary: 220 15% 94%;               /* Secondary background */
+    --secondary-foreground: 225 15% 10%;    /* Secondary text */
+
+    /* Premium Metric Cards */
+    --metric-blue: 214 100% 62%;            /* Primary blue */
+    --metric-cyan: 185 95% 55%;             /* Cyan accent */
+    --metric-violet: 265 89% 64%;           /* Purple accent */
+    --metric-emerald: 142 76% 45%;          /* Green accent */
+    --metric-amber: 38 92% 50%;             /* Amber accent */
+    --metric-rose: 350 89% 60%;             /* Rose accent */
+
+    /* Typography & Spacing */
+    --radius: 1rem;                         /* Generous radius */
+    --radius-sm: 0.75rem;
+    --radius-lg: 1.25rem;
+    --radius-xl: 1.5rem;
+  }
+
+  .dark {
+    /* Premium Dark Theme - Ultra Sophisticated */
+    --background: 224 15% 4%;              /* Rich cosmic black */
+    --background-secondary: 225 14% 7%;     /* Deep space */  
+    --background-tertiary: 226 13% 10%;     /* Elevated surface */
+    --background-overlay: 225 20% 6% / 0.95; /* Glassmorphism base */
+    
+    --foreground: 215 30% 96%;              /* Pure crisp white */
+    --foreground-secondary: 216 25% 85%;    /* Refined silver */
+    --foreground-muted: 217 20% 65%;        /* Elegant gray */
+    --foreground-accent: 210 100% 85%;      /* Bright highlight */
+
+    /* Premium Brand Palette - Electric Blue Suite */
+    --primary: 214 100% 62%;                /* Vibrant electric blue */
+    --primary-light: 212 100% 70%;          /* Bright sky */
+    --primary-dark: 216 100% 54%;           /* Deep ocean */
+    --primary-hover: 213 95% 58%;           /* Interactive state */
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 214 100% 80%;           /* Luminous accent */
+
+    /* Sophisticated Accent System */
+    --accent: 225 12% 13%;                  /* Subtle elevation */
+    --accent-hover: 225 15% 18%;            /* Interactive surface */
+    --accent-foreground: 215 30% 96%;
+    --accent-bright: 214 100% 92%;          /* Highlight accent */
+
+    /* Premium Status Colors */
+    --success: 142 76% 45%;                 /* Emerald success */
+    --success-light: 142 76% 55%;
+    --warning: 38 92% 50%;                  /* Amber warning */
+    --warning-light: 38 92% 60%;
+    --error: 0 84% 60%;                     /* Refined red */
+    --error-light: 0 84% 70%;
+    --info: 214 100% 62%;                   /* Info blue */
+    
+    /* Destructive colors for error states - High contrast */
+    --destructive: 0 84% 60%;               /* Bright red background */
+    --destructive-foreground: 0 0% 100%;    /* White text for contrast */
+    
+    /* Additional UI colors for better contrast */
+    --muted: 225 15% 15%;                   /* Muted background */
+    --muted-foreground: 217 20% 65%;        /* Muted text */
+    --secondary: 225 12% 13%;               /* Secondary background */
+    --secondary-foreground: 215 30% 96%;    /* Secondary text */
+
+    /* Glass & Surface System */
+    --glass-background: 225 20% 15% / 0.7;  /* Glassmorphism */
+    --glass-border: 215 50% 80% / 0.1;      /* Subtle glass border */
+    --glass-shadow: 224 30% 2% / 0.5;       /* Premium shadows */
+    
+    /* Enhanced Borders */
+    --border: 225 15% 15%;                  /* Elegant boundary */
+    --border-hover: 225 20% 25%;            /* Interactive border */
+    --border-accent: 214 60% 50% / 0.3;     /* Glowing border */
+    --border-glow: 214 100% 70% / 0.4;      /* Premium glow */
+    
+    /* Input & Interactive */
+    --input: 225 14% 9%;                    /* Deep input field */
+    --input-border: 225 15% 20%;
+    --ring: 214 100% 62%;
+    --ring-offset: 224 15% 4%;
+
+    /* Sidebar Premium System */
+    --sidebar-background: 225 18% 5%;       /* Rich sidebar */
+    --sidebar-foreground: 215 30% 96%;
+    --sidebar-primary: 214 100% 62%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 225 15% 12%;
+    --sidebar-accent-foreground: 215 30% 96%;
+    --sidebar-border: 225 15% 12%;
+    --sidebar-ring: 214 100% 62%;
+    --sidebar-glow: 214 100% 70% / 0.1;     /* Subtle glow */
+
+    /* Premium Card System */
+    --card-background: 225 15% 8% / 0.9;    /* Premium card */
+    --card-border: 225 20% 15%;
+    --card-glow: 214 60% 50% / 0.05;        /* Subtle glow */
+    --card-hover: 225 15% 11%;              /* Hover state */
   }
 }
 
@@ -369,10 +559,7 @@
       -webkit-user-select: text;
     }
     
-    /* Hide install button when already installed */
-    [data-install-button] {
-      display: none !important;
-    }
+    /* PWA install button CSS removed - no more install popups */
   }
 
   /* Responsive breakpoints optimization */

@@ -12,6 +12,8 @@ import ClientPortalMedia from '@/components/client-portal/ClientPortalMedia';
 import ClientPortalRequests from '@/components/client-portal/ClientPortalRequests';
 import ClientPortalChatbot from '@/components/client-portal/ClientPortalChatbot';
 import { useClientPortalRealtime } from '@/hooks/useClientPortalRealtime';
+import { useRecentActivity } from '@/hooks/useRecentActivity';
+import RecentActivity from '@/components/RecentActivity';
 
 const ClientPortal = () => {
   const { projectId } = useParams<{ projectId: string }>();
@@ -21,6 +23,12 @@ const ClientPortal = () => {
   const [project, setProject] = useState<any>(null);
   const [endClient, setEndClient] = useState<any>(null);
   const [chatbot, setChatbot] = useState<any>(null);
+
+  // Use real activity data for this project
+  const { activities, loading: activitiesLoading, error: activitiesError, refresh: refreshActivities } = useRecentActivity({
+    projectId: projectId || undefined,
+    limit: 10
+  });
 
   const loadData = async () => {
     try {
@@ -274,6 +282,18 @@ const ClientPortal = () => {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Recent Activity */}
+            <RecentActivity
+              activities={activities}
+              loading={activitiesLoading}
+              error={activitiesError}
+              onRefresh={refreshActivities}
+              title="Recent Activity"
+              description="Latest updates and interactions for this project"
+              showStats={true}
+              maxItems={6}
+            />
           </TabsContent>
 
           <TabsContent value="analytics">

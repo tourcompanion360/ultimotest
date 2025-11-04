@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Camera, BarChart3, Image, HelpCircle, Settings, FileText, Sun, Moon, Menu, X, Share2, GraduationCap, User, Bot, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -7,6 +7,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { TEXT } from '@/constants/text';
 import FloatingContact from './FloatingContact';
+import NotificationBell from './NotificationBell';
+import NotificationPanel from './NotificationPanel';
 interface LayoutProps {
   children: React.ReactNode;
   currentPage: string;
@@ -21,8 +23,15 @@ const Layout = ({
   const { agencySettings } = useAgency();
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
-  const [isLightTheme, setIsLightTheme] = useState(false);
+  const [isLightTheme, setIsLightTheme] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
+  
+  // Apply light theme on component mount
+  useEffect(() => {
+    document.documentElement.classList.add('light');
+    document.documentElement.classList.remove('dark');
+  }, []);
   
   const navigationItems = [{
     id: 'projects',
@@ -42,12 +51,8 @@ const Layout = ({
     icon: User
   }, {
     id: 'chatbots',
-    label: TEXT.NAVIGATION.CHATBOTS,
+    label: 'Chatbots',
     icon: Bot
-  }, {
-    id: 'chatbot-requests',
-    label: 'Request Chatbot',
-    icon: FileText
   }, {
     id: 'support',
     label: TEXT.NAVIGATION.SUPPORT,
@@ -60,7 +65,15 @@ const Layout = ({
   
   const toggleTheme = () => {
     setIsLightTheme(!isLightTheme);
-    document.documentElement.classList.toggle('light');
+    if (isLightTheme) {
+      // Switch to dark theme
+      document.documentElement.classList.remove('light');
+      document.documentElement.classList.add('dark');
+    } else {
+      // Switch to light theme
+      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
+    }
   };
 
   const handleSignOut = async () => {
@@ -97,12 +110,15 @@ const Layout = ({
             />
             <h1 className="text-xl font-bold text-primary tracking-tight">{agencySettings.agency_name}</h1>
           </div>
-          <button 
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-2 text-foreground hover:bg-accent rounded-lg transition-colors"
-          >
-            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+            <button 
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="p-2 text-foreground hover:bg-accent rounded-lg transition-colors"
+            >
+              {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          </div>
         </div>
         
         {/* Bottom row with theme toggle */}
@@ -249,6 +265,19 @@ const Layout = ({
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
+          {/* Desktop Header Bar */}
+          <div className="hidden lg:flex items-center justify-between px-6 py-4 border-b border-sidebar-border bg-background">
+            <div className="flex items-center gap-4">
+              <h2 className="text-lg font-semibold text-foreground capitalize">
+                {currentPage.replace('-', ' ')}
+              </h2>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <NotificationBell />
+            </div>
+          </div>
+
           <main className="flex-1 p-4 sm:p-6 lg:p-8">
             {children}
           </main>
@@ -257,6 +286,12 @@ const Layout = ({
 
       {/* Premium Floating Contact */}
       <FloatingContact />
+
+      {/* Notification Panel */}
+      <NotificationPanel 
+        isOpen={isNotificationPanelOpen} 
+        onClose={() => setIsNotificationPanelOpen(false)} 
+      />
     </div>;
 };
 export default Layout;

@@ -501,18 +501,18 @@ const ProjectGrid: React.FC<ProjectGridProps> = ({ onCreateRequest, onClientClic
               onClick={() => onClientClick?.(client)}
             >
               <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-sm font-medium text-foreground line-clamp-1">
+                <div className="card-header-safe">
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="text-sm font-medium text-foreground name-display-safe">
                       {client.name}
                     </CardTitle>
-                    <CardDescription className="text-xs text-foreground-secondary line-clamp-1">
+                    <CardDescription className="text-xs text-foreground-secondary company-display-safe">
                       {client.company}
                     </CardDescription>
                   </div>
                   <Badge 
                     variant={client.status === 'active' ? 'default' : 'secondary'}
-                    className="text-xs"
+                    className="text-xs flex-shrink-0"
                   >
                     {client.status}
                   </Badge>
@@ -522,7 +522,7 @@ const ProjectGrid: React.FC<ProjectGridProps> = ({ onCreateRequest, onClientClic
               <CardContent className="pt-0 space-y-2">
                 <div className="flex items-center gap-2 text-xs text-foreground-secondary">
                   <Mail className="w-3 h-3" />
-                  <span className="line-clamp-1">{client.email}</span>
+                  <span className="email-display-safe">{client.email}</span>
                 </div>
                 
                 <div className="flex items-center gap-2 text-xs text-foreground-secondary">

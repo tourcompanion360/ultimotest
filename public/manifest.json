@@ -1,14 +1,14 @@
 {
-  "name": "Dashboard Intermobil - gestisci i tuoi virtual tour con un click",
-  "short_name": "Dashboard Intermobil",
-  "description": "Dashboard professionale per la gestione completa dei tuoi virtual tour privati. Controlla, monitora e gestisci tutti i tuoi tour virtuali da un'unica piattaforma intuitiva.",
+  "name": "TourCompanion - Virtual Tour Dashboard",
+  "short_name": "TourCompanion",
+  "description": "Professional dashboard for managing virtual tours and client projects. Create, manage, and share immersive virtual experiences.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0b1426",
   "theme_color": "#3b82f6",
   "orientation": "portrait-primary",
   "categories": ["business", "productivity", "real-estate"],
-  "lang": "it",
+  "lang": "en",
   "dir": "ltr",
   "scope": "/",
   "icons": [
@@ -36,36 +36,36 @@
       "sizes": "1280x720",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "Dashboard principale con tour virtuali"
+      "label": "Main dashboard with virtual tours"
     },
     {
       "src": "/screenshot-mobile.png",
       "sizes": "390x844",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "App mobile ottimizzata"
+      "label": "Optimized mobile app"
     }
   ],
   "shortcuts": [
     {
-      "name": "Tour Virtuali",
-      "short_name": "Tour",
-      "description": "Gestisci i tuoi tour virtuali",
-      "url": "/?shortcut=tours",
+      "name": "Projects",
+      "short_name": "Projects",
+      "description": "Manage your virtual tour projects",
+      "url": "/?shortcut=projects",
       "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
     },
     {
-      "name": "Appuntamenti",
-      "short_name": "Appuntamenti",
-      "description": "Visualizza appuntamenti",
-      "url": "/?shortcut=appointments",
+      "name": "Client Requests",
+      "short_name": "Requests",
+      "description": "View client requests",
+      "url": "/?shortcut=requests",
       "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
     },
     {
-      "name": "Statistiche",
-      "short_name": "Stats",
-      "description": "Dashboard statistiche",
-      "url": "/?shortcut=stats",
+      "name": "Analytics",
+      "short_name": "Analytics",
+      "description": "View analytics dashboard",
+      "url": "/?shortcut=analytics",
       "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
     }
   ],

@@ -13,6 +13,14 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { 
+  sanitizeTextInput, 
+  sanitizeEmail, 
+  sanitizeCompanyName, 
+  sanitizePersonName,
+  sanitizeTitle,
+  sanitizeDescription 
+} from '@/utils/inputValidation';
+import { 
   Plus, 
   User, 
   Building, 
@@ -53,12 +61,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, onPr
     projectType: 'virtual_tour',
     projectCategory: 'real_estate',
     
-    // Chatbot Configuration
-    enableChatbot: true,
-    chatbotName: '',
-    chatbotLanguage: 'en',
-    chatbotWelcomeMessage: 'Hello! How can I help you today?',
-    chatbotFallbackMessage: 'I apologize, but I need more information to help you. Please contact us directly.',
+    // No chatbot configuration - users will create chatbots separately
     
     // Advanced Settings
     enableAnalytics: true,
@@ -73,9 +76,8 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, onPr
 
   const projectTypes = [
     { value: 'virtual_tour', label: 'Virtual Tour' },
-    { value: '3d_scan', label: '3D Scan' },
-    { value: 'interactive_media', label: 'Interactive Media' },
-    { value: 'product_showcase', label: 'Product Showcase' }
+    { value: '3d_showcase', label: '3D Showcase' },
+    { value: 'interactive_map', label: 'Interactive Map' }
   ];
 
   const projectCategories = [
@@ -118,7 +120,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, onPr
     try {
       setIsSubmitting(true);
       
-      // Validate required fields
+      // Validate and sanitize required fields
       if (!formData.clientName || !formData.clientEmail || !formData.projectTitle) {
         toast({
           title: "Missing Information",
@@ -127,6 +129,18 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, onPr
         });
         return;
       }
+
+      // Sanitize all input data to prevent UI issues
+      const sanitizedData = {
+        clientName: sanitizePersonName(formData.clientName),
+        clientEmail: sanitizeEmail(formData.clientEmail),
+        clientCompany: sanitizeCompanyName(formData.clientCompany || 'Individual Client'),
+        clientPhone: sanitizeTextInput(formData.clientPhone || ''),
+        projectTitle: sanitizeTitle(formData.projectTitle),
+        projectDescription: sanitizeDescription(formData.projectDescription || ''),
+        projectType: formData.projectType,
+        enableChatbot: formData.enableChatbot
+      };
 
       if (!user) {
         console.error('No user found in authentication context');
@@ -162,10 +176,10 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, onPr
         .from('end_clients')
         .insert({
           creator_id: creator.id,
-          name: formData.clientName,
-          email: formData.clientEmail,
-          company: formData.clientCompany || 'Individual Client',
-          phone: formData.clientPhone || null,
+          name: sanitizedData.clientName,
+          email: sanitizedData.clientEmail,
+          company: sanitizedData.clientCompany,
+          phone: sanitizedData.clientPhone || null,
           website: formData.clientWebsite || null,
         })
         .select('id, name, email')
@@ -186,9 +200,9 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, onPr
         .from('projects')
         .insert({
           end_client_id: endClient.id,
-          title: formData.projectTitle,
-          description: formData.projectDescription || null,
-          project_type: formData.projectType,
+          title: sanitizedData.projectTitle,
+          description: sanitizedData.projectDescription || null,
+          project_type: sanitizedData.projectType,
           status: 'active',
         })
         .select('id, title, description, project_type, status, created_at')
@@ -204,35 +218,14 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, onPr
         return;
       }
 
-      // Step 3: Create chatbot (if enabled)
-      let chatbot = null;
-      if (formData.enableChatbot) {
-        const { data: chatbotData, error: chatbotError } = await supabase
-          .from('chatbots')
-          .insert({
-            project_id: project.id,
-            name: formData.chatbotName || `${formData.projectTitle} Assistant`,
-            language: formData.chatbotLanguage,
-            welcome_message: formData.chatbotWelcomeMessage,
-            status: 'active',
-          })
-          .select('id, name, status')
-          .single();
+      // No automatic chatbot creation - users will create chatbots via "Request Chatbot" section
 
-        if (chatbotError) {
-          console.error('Error creating chatbot:', chatbotError);
-          // Don't fail the whole process if chatbot creation fails
-        } else {
-          chatbot = chatbotData;
-        }
-      }
-
-      console.log('Project created successfully:', { project, endClient, chatbot });
+      console.log('Project created successfully:', { project, endClient });
 
       // Show success message
       toast({
         title: "Project Created Successfully",
-        description: `New project "${project.title}" has been created for ${endClient.name}.`,
+        description: `New project "${project.title}" has been created for ${endClient.name}. Go to "Chatbots" section to create your AI assistant.`,
       });
 
       // Pass the project data back to parent for refresh
@@ -244,7 +237,6 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, onPr
         status: project.status,
         created_at: project.created_at,
         end_client: endClient,
-        chatbot: chatbot,
       });
       handleClose();
       
@@ -272,11 +264,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, onPr
       projectDescription: '',
       projectType: 'virtual_tour',
       projectCategory: 'real_estate',
-      enableChatbot: true,
-      chatbotName: '',
-      chatbotLanguage: 'en',
-      chatbotWelcomeMessage: 'Hello! How can I help you today?',
-      chatbotFallbackMessage: 'I apologize, but I need more information to help you. Please contact us directly.',
+      // No chatbot configuration needed
       enableAnalytics: true,
       enableNotifications: true,
       customDomain: '',
@@ -437,103 +425,89 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, onPr
         return (
           <div className="space-y-6">
             <div className="text-center py-4">
-              <h3 className="text-lg font-semibold text-foreground">Set up your AI assistant</h3>
-              <p className="text-sm text-muted-foreground mt-1">Configure the chatbot and final settings for your client</p>
+              <h3 className="text-lg font-semibold text-foreground">Project Ready!</h3>
+              <p className="text-sm text-muted-foreground mt-1">Your project has been set up successfully</p>
             </div>
             
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-base">Enable Chatbot</CardTitle>
-                    <CardDescription>Create an AI assistant for this client</CardDescription>
-                  </div>
-                  <Switch
-                    checked={formData.enableChatbot}
-                    onCheckedChange={(checked) => handleInputChange('enableChatbot', checked)}
-                  />
-                </div>
-              </CardHeader>
-              
-              {formData.enableChatbot && (
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="chatbotName">Chatbot Name</Label>
-                      <Input
-                        id="chatbotName"
-                        placeholder="Assistant Name"
-                        value={formData.chatbotName}
-                        onChange={(e) => handleInputChange('chatbotName', e.target.value)}
-                      />
+            <div className="grid grid-cols-1 gap-6">
+              <Card className="border-green-200 bg-green-50/50">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
                     </div>
-                    
-                    <div className="space-y-2">
-                      <Label>Language</Label>
-                      <Select value={formData.chatbotLanguage} onValueChange={(value) => handleInputChange('chatbotLanguage', value)}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {languages.map((lang) => (
-                            <SelectItem key={lang.value} value={lang.value}>
-                              {lang.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <div>
+                      <CardTitle className="text-base text-green-900">Project Created Successfully</CardTitle>
+                      <CardDescription className="text-green-700">
+                        Your project is ready and your client can access their portal
+                      </CardDescription>
                     </div>
                   </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="welcomeMessage">Welcome Message</Label>
-                    <Textarea
-                      id="welcomeMessage"
-                      placeholder="Hello! How can I help you today?"
-                      value={formData.chatbotWelcomeMessage}
-                      onChange={(e) => handleInputChange('chatbotWelcomeMessage', e.target.value)}
-                      rows={2}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="fallbackMessage">Fallback Message</Label>
-                    <Textarea
-                      id="fallbackMessage"
-                      placeholder="I apologize, but I need more information..."
-                      value={formData.chatbotFallbackMessage}
-                      onChange={(e) => handleInputChange('chatbotFallbackMessage', e.target.value)}
-                      rows={2}
-                    />
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm text-green-800">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <span>Client portal is active and accessible</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-green-800">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <span>Analytics tracking is enabled</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-green-800">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <span>Ready to share media and manage requests</span>
+                    </div>
                   </div>
                 </CardContent>
-              )}
-            </Card>
-            
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>Enable Analytics</Label>
-                  <p className="text-sm text-muted-foreground">Track project performance</p>
-                </div>
-                <Switch
-                  checked={formData.enableAnalytics}
-                  onCheckedChange={(checked) => handleInputChange('enableAnalytics', checked)}
-                />
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>Enable Notifications</Label>
-                  <p className="text-sm text-muted-foreground">Get updates on client activity</p>
-                </div>
-                <Switch
-                  checked={formData.enableNotifications}
-                  onCheckedChange={(checked) => handleInputChange('enableNotifications', checked)}
-                />
-              </div>
-            </div>
+              </Card>
+
+              <Card className="border-blue-200 bg-blue-50/50">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <Bot className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base text-blue-900">Need an AI Assistant?</CardTitle>
+                      <CardDescription className="text-blue-700">
+                        Create a custom chatbot for your project
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-xs font-semibold text-blue-700 mt-0.5">
+                        1
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-blue-900">Go to "Chatbots" section</p>
+                        <p className="text-xs text-blue-700">Located in your main dashboard navigation</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-xs font-semibold text-blue-700 mt-0.5">
+                        2
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-blue-900">Submit a chatbot request</p>
+                        <p className="text-xs text-blue-700">Share files via cloud storage, specify requirements, and get a custom AI assistant</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-xs font-semibold text-blue-700 mt-0.5">
+                        3
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-blue-900">We'll create your custom chatbot</p>
+                        <p className="text-xs text-blue-700">Our team will build a specialized assistant for your needs</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         );
@@ -560,7 +534,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, onPr
               {[
                 { step: 1, label: 'Client Info', icon: User },
                 { step: 2, label: 'Project Setup', icon: Settings },
-                { step: 3, label: 'Chatbot Config', icon: Bot }
+                { step: 3, label: 'Complete', icon: CheckCircle }
               ].map(({ step, label, icon: Icon }, index) => (
                 <div key={step} className="flex items-center">
                   {/* Step Circle */}

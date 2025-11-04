@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { MessageCircle, Users, TrendingUp, Clock, Search, Filter, ExternalLink }
 import { supabase } from '@/integrations/supabase/client';
 import { TEXT } from '@/constants/text';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 interface ChatbotQuestion {
   id: string;
@@ -32,6 +33,7 @@ interface Lead {
 
 const ConversationalIntelligence: React.FC = () => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [topQuestions, setTopQuestions] = useState<ChatbotQuestion[]>([]);
   const [unansweredQuestions, setUnansweredQuestions] = useState<ChatbotQuestion[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -39,10 +41,74 @@ const ConversationalIntelligence: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
+  
+  // Real-time subscription setup
+  const channelRef = useRef<any>(null);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     loadConversationalData();
   }, []);
+
+  // Set up real-time subscriptions for leads
+  useEffect(() => {
+    if (!user?.id) return;
+
+    console.log('[ConversationalIntelligence] Setting up real-time subscriptions');
+
+    const channel = supabase
+      .channel(`conversational-intelligence-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'leads',
+        },
+        (payload) => {
+          console.log('[ConversationalIntelligence] Lead change detected:', payload);
+          debouncedRefresh();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'analytics',
+        },
+        (payload) => {
+          console.log('[ConversationalIntelligence] Analytics change detected:', payload);
+          debouncedRefresh();
+        }
+      )
+      .subscribe((status) => {
+        console.log('[ConversationalIntelligence] Subscription status:', status);
+      });
+
+    channelRef.current = channel;
+
+    return () => {
+      console.log('[ConversationalIntelligence] Cleaning up real-time subscriptions');
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, [user?.id]);
+
+  const debouncedRefresh = () => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    
+    debounceTimeoutRef.current = setTimeout(() => {
+      console.log('[ConversationalIntelligence] Triggering debounced refresh');
+      loadConversationalData();
+    }, 1000);
+  };
 
   const loadConversationalData = async () => {
     try {
@@ -350,14 +416,14 @@ const ConversationalIntelligence: React.FC = () => {
               ) : (
                 leads.map((lead) => (
                   <div key={lead.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-3 mb-2">
-                          <div>
-                            <h4 className="font-medium text-foreground">{lead.name}</h4>
-                            <p className="text-sm text-muted-foreground">{lead.email}</p>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-foreground truncate">{lead.name}</h4>
+                            <p className="text-sm text-muted-foreground truncate">{lead.email}</p>
                           </div>
-                          <Badge variant={getStatusBadgeVariant(lead.status)}>
+                          <Badge variant={getStatusBadgeVariant(lead.status)} className="flex-shrink-0">
                             {getStatusLabel(lead.status)}
                           </Badge>
                         </div>

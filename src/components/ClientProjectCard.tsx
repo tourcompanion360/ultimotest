@@ -124,23 +124,23 @@ const ClientProjectCard: React.FC<ClientProjectCardProps> = ({
   return (
     <Card className="hover:shadow-lg transition-all duration-200 hover:scale-[1.02] cursor-pointer group">
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
+        <div className="card-header-safe">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center flex-shrink-0">
               <span className="text-sm font-semibold text-primary">
                 {project.client.name.split(' ').map(n => n[0]).join('').toUpperCase()}
               </span>
             </div>
             <div className="flex-1 min-w-0">
-              <CardTitle className="text-lg line-clamp-1 group-hover:text-primary transition-colors">
+              <CardTitle className="text-lg name-display-safe group-hover:text-primary transition-colors">
                 {project.project.title}
               </CardTitle>
-              <CardDescription className="line-clamp-1">
+              <CardDescription className="company-display-safe">
                 {project.client.name} • {project.client.company}
               </CardDescription>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <Badge className={getStatusColor(project.project.status)}>
               <div className="flex items-center gap-1">
                 {getStatusIcon(project.project.status)}

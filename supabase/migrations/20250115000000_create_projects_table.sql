@@ -39,3 +39,6 @@ INSERT INTO public.projects (title, description, thumbnail_url, client_name, pro
 
 
 
+
+
+

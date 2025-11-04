@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, FileText, Plus, Clock, Upload, X } from 'lucide-react';
+import { Loader2, FileText, Plus, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 
@@ -29,11 +29,64 @@ const ClientPortalRequests: React.FC<ClientPortalRequestsProps> = ({ projectId, 
     request_type: 'content_change' as const,
     priority: 'medium' as const,
   });
-  const [attachments, setAttachments] = useState<File[]>([]);
+  const [fileLinks, setFileLinks] = useState('');
+  
+  // Real-time subscription setup
+  const channelRef = useRef<any>(null);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     loadRequests();
   }, [projectId]);
+
+  // Set up real-time subscriptions for requests
+  useEffect(() => {
+    if (!projectId) return;
+
+    console.log('[ClientPortalRequests] Setting up real-time subscriptions');
+
+    const channel = supabase
+      .channel(`client-portal-requests-${projectId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'requests',
+          filter: `project_id=eq.${projectId}`,
+        },
+        (payload) => {
+          console.log('[ClientPortalRequests] Request change detected:', payload);
+          debouncedRefresh();
+        }
+      )
+      .subscribe((status) => {
+        console.log('[ClientPortalRequests] Subscription status:', status);
+      });
+
+    channelRef.current = channel;
+
+    return () => {
+      console.log('[ClientPortalRequests] Cleaning up real-time subscriptions');
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, [projectId]);
+
+  const debouncedRefresh = () => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    
+    debounceTimeoutRef.current = setTimeout(() => {
+      console.log('[ClientPortalRequests] Triggering debounced refresh');
+      loadRequests();
+    }, 1000);
+  };
 
   const loadRequests = async () => {
     try {
@@ -77,6 +130,7 @@ const ClientPortalRequests: React.FC<ClientPortalRequestsProps> = ({ projectId, 
         request_type: newRequest.request_type,
         priority: newRequest.priority,
         status: 'open',
+        file_links: fileLinks,
       });
 
       if (error) throw error;
@@ -92,7 +146,7 @@ const ClientPortalRequests: React.FC<ClientPortalRequestsProps> = ({ projectId, 
         request_type: 'content_change',
         priority: 'medium',
       });
-      setAttachments([]);
+      setFileLinks('');
       setShowNewRequest(false);
       loadRequests();
     } catch (error: any) {
@@ -231,49 +285,22 @@ const ClientPortalRequests: React.FC<ClientPortalRequestsProps> = ({ projectId, 
 
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="attachments">Attachments (Optional)</Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        id="attachments"
-                        type="file"
-                        multiple
-                        accept="image/*,video/*,.pdf,.doc,.docx"
-                        onChange={(e) => {
-                          const files = Array.from(e.target.files || []);
-                          setAttachments(prev => [...prev, ...files]);
-                        }}
-                        className="flex-1"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const input = document.getElementById('attachments') as HTMLInputElement;
-                          input.click();
-                        }}
-                      >
-                        <Upload className="h-4 w-4 mr-2" />
-                        Add Files
-                      </Button>
+                    <Label htmlFor="file-links">Share Files (Optional)</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Paste links from Google Drive, Dropbox, WeTransfer, or other cloud storage services
+                    </p>
+                    <Textarea
+                      id="file-links"
+                      placeholder="https://drive.google.com/file/d/...&#10;https://www.dropbox.com/s/...&#10;https://wetransfer.com/downloads/..."
+                      value={fileLinks}
+                      onChange={(e) => setFileLinks(e.target.value)}
+                      rows={3}
+                      className="resize-none"
+                    />
+                    <div className="text-xs text-muted-foreground">
+                      <p>• One link per line</p>
+                      <p>• Make sure links are publicly accessible or shared with appropriate permissions</p>
                     </div>
-                    {attachments.length > 0 && (
-                      <div className="space-y-2">
-                        {attachments.map((file, index) => (
-                          <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
-                            <span className="text-sm truncate">{file.name}</span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setAttachments(prev => prev.filter((_, i) => i !== index))}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </div>
 
                   <div className="flex gap-2">
