@@ -29,6 +29,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useAgency } from '@/contexts/AgencyContext';
 import { supabase } from '@/integrations/supabase/client';
 import { TEXT } from '@/constants/text';
+import { useAuth } from '@/hooks/useAuth';
+import AvatarUpload from './AvatarUpload';
 
 interface ProfileSettings {
   agency_name: string;
@@ -51,6 +53,8 @@ interface IntegrationSettings {
 const Settings: React.FC = () => {
   const { toast } = useToast();
   const { agencySettings, updateAgencySettings } = useAgency();
+  const { user } = useAuth();
+  const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
   
   const [profileSettings, setProfileSettings] = useState<ProfileSettings>({
     agency_name: agencySettings.agency_name,
@@ -83,9 +87,22 @@ const Settings: React.FC = () => {
       setError(null);
 
       // Get current user
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      const { data: { user: authUser }, error: userError } = await supabase.auth.getUser();
       
-      if (userError || !user) {
+      // Load user profile avatar
+      if (authUser) {
+        const { data: avatarData } = await (supabase as any)
+          .from('profiles')
+          .select('avatar_url')
+          .eq('user_id', authUser.id)
+          .single();
+        
+        if (avatarData?.avatar_url) {
+          setUserAvatarUrl(avatarData.avatar_url);
+        }
+      }
+      
+      if (userError || !authUser) {
         throw new Error('User not authenticated');
       }
 
@@ -93,14 +110,14 @@ const Settings: React.FC = () => {
       const { data: profileData, error: profileError } = await supabase
         .from('creators')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', authUser.id)
         .single();
 
       if (profileData && !profileError) {
         setProfileSettings({
           agency_name: profileData.agency_name || '',
           agency_logo: profileData.agency_logo || '',
-          contact_email: profileData.contact_email || user.email || '',
+          contact_email: profileData.contact_email || authUser.email || '',
           phone: profileData.phone || '',
           website: profileData.website || '',
           address: profileData.address || '',
@@ -112,7 +129,7 @@ const Settings: React.FC = () => {
         setProfileSettings({
           agency_name: '',
           agency_logo: '',
-          contact_email: user.email || '',
+          contact_email: authUser.email || '',
           phone: '',
           website: '',
           address: '',
@@ -299,7 +316,6 @@ const Settings: React.FC = () => {
     }
   };
 
-
   if (isLoading) {
     return (
       <div className="space-y-8 animate-fade-in-up">
@@ -377,6 +393,14 @@ const Settings: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Avatar uploader inside the profile box - compact */}
+              <div className="mb-2">
+                <AvatarUpload
+                  currentAvatarUrl={userAvatarUrl}
+                  onAvatarUpdated={(newUrl) => setUserAvatarUrl(newUrl)}
+                  variant="inline"
+                />
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="agency_name">{TEXT.SETTINGS_PAGE.AGENCY_NAME} *</Label>
@@ -419,26 +443,6 @@ const Settings: React.FC = () => {
           className="input-safe"
         />
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="agency_logo">{TEXT.SETTINGS_PAGE.AGENCY_LOGO}</Label>
-        <Input
-          id="agency_logo"
-          value={profileSettings.agency_logo}
-          onChange={(e) => setProfileSettings(prev => ({ ...prev, agency_logo: e.target.value }))}
-          placeholder={TEXT.SETTINGS_PAGE.ENTER_LOGO_URL}
-          className="input-safe"
-        />
-                {profileSettings.agency_logo && (
-                  <div className="mt-2">
-                    <img 
-                      src={profileSettings.agency_logo} 
-                      alt="Agency Logo" 
-                      className="w-16 h-16 object-contain border rounded"
-                    />
-                  </div>
-                )}
               </div>
 
               <div className="space-y-2">

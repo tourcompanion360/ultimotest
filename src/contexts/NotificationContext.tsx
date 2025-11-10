@@ -2,17 +2,21 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { supabase } from '../integrations/supabase/client';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/use-toast';
-import { isValidRequest, isValidChatbotRequest, isValidLead } from '../utils/notificationUtils';
 
 export interface Notification {
   id: string;
-  type: 'request' | 'chatbot_request' | 'lead' | 'system';
+  type: 'media_upload' | 'media_shared' | 'request_created' | 'request_updated' | 'request_completed' | 'project_update' | 'system' | 'message';
   title: string;
   message: string;
   data?: any;
   read: boolean;
   created_at: string;
+  read_at?: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
+  related_entity_type?: 'project' | 'request' | 'asset' | 'client' | 'media';
+  related_entity_id?: string;
+  sender_id?: string;
+  user_id: string;
 }
 
 interface NotificationContextType {
@@ -41,79 +45,62 @@ interface NotificationProviderProps {
 
 export const NotificationProvider: React.FC<NotificationProviderProps> = ({ children }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const { toast } = useToast();
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  // Load notifications from localStorage on mount
-  useEffect(() => {
-    if (user?.id) {
-      // One-time cleanup: Clear all notification data to remove fake notifications
-      const cleanupKey = `notifications_cleanup_done_${user.id}`;
-      if (!localStorage.getItem(cleanupKey)) {
-        console.log('🧹 Performing one-time notification cleanup...');
-        Object.keys(localStorage).forEach(key => {
-          if (key.startsWith('notifications_')) {
-            localStorage.removeItem(key);
-          }
-        });
-        localStorage.setItem(cleanupKey, 'true');
-        console.log('✅ Notification cleanup completed');
-        return; // Don't load any notifications on first run after cleanup
-      }
+  // Load notifications from database on mount
+  const loadNotifications = useCallback(async () => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
 
-      const savedNotifications = localStorage.getItem(`notifications_${user.id}`);
-      if (savedNotifications) {
-        try {
-          const parsed = JSON.parse(savedNotifications);
-          // Filter out any fake/test notifications with aggressive filtering
-          const realNotifications = parsed.filter((notification: Notification) => {
-            // Only keep notifications that have valid data and aren't test data
-            if (!notification.data || !notification.data.requestId) {
-              return false;
-            }
-            
-            const title = notification.title?.toLowerCase() || '';
-            const message = notification.message?.toLowerCase() || '';
-            
-            // Check for test/fake keywords
-            const testKeywords = ['test', 'fake', 'sample', 'dummy', 'sarah johnson', 'conference room'];
-            for (const keyword of testKeywords) {
-              if (title.includes(keyword) || message.includes(keyword)) {
-                return false;
-              }
-            }
-            
-            // Check for repeated character patterns
-            const repeatedCharPattern = /^([a-z])\1{2,}$/i;
-            if (repeatedCharPattern.test(title) || repeatedCharPattern.test(message)) {
-              return false;
-            }
-            
-            // Check minimum length
-            if (title.length < 3 || message.length < 10) {
-              return false;
-            }
-            
-            return true;
-          });
-          setNotifications(realNotifications);
-        } catch (error) {
-          console.error('Error parsing saved notifications:', error);
-          // Clear corrupted localStorage data
-          localStorage.removeItem(`notifications_${user.id}`);
+    try {
+      console.log('[NotificationContext] Loading notifications for user:', user.id);
+      
+      const { data, error } = await supabase
+        .from('notifications' as any)
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) {
+        // Check if error is due to table not existing (migration not run yet)
+        if (error.message?.includes('relation "notifications" does not exist') || 
+            error.code === '42P01') {
+          console.warn('[NotificationContext] Notifications table does not exist yet. Please run the migration.');
+          setNotifications([]);
+          setLoading(false);
+          return;
         }
+        console.error('[NotificationContext] Error loading notifications:', error);
+        throw error;
       }
-    }
-  }, [user?.id]);
 
-  // Save notifications to localStorage whenever they change
-  useEffect(() => {
-    if (user?.id && notifications.length > 0) {
-      localStorage.setItem(`notifications_${user.id}`, JSON.stringify(notifications));
+      console.log('[NotificationContext] Loaded notifications:', data?.length || 0);
+      setNotifications(data || []);
+    } catch (error: any) {
+      console.error('[NotificationContext] Failed to load notifications:', error);
+      // Only show error toast if it's not a "table doesn't exist" error
+      if (!error.message?.includes('relation "notifications" does not exist')) {
+        toast({
+          title: 'Error loading notifications',
+          description: 'Failed to load notifications. Please refresh the page.',
+          variant: 'destructive',
+        });
+      }
+    } finally {
+      setLoading(false);
     }
-  }, [notifications, user?.id]);
+  }, [user?.id, toast]);
+
+  useEffect(() => {
+    loadNotifications();
+  }, [loadNotifications]);
 
   const addNotification = useCallback((notification: Omit<Notification, 'id' | 'read' | 'created_at'>) => {
     const newNotification: Notification = {
@@ -141,265 +128,155 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     }
   }, [toast]);
 
-  const markAsRead = useCallback((notificationId: string) => {
-    setNotifications(prev =>
-      prev.map(notification =>
-        notification.id === notificationId
-          ? { ...notification, read: true }
-          : notification
-      )
-    );
-  }, []);
+  const markAsRead = useCallback(async (notificationId: string) => {
+    try {
+      const { error } = await supabase
+        .from('notifications' as any)
+        .update({ read: true, read_at: new Date().toISOString() })
+        .eq('id', notificationId)
+        .eq('user_id', user?.id);
 
-  const markAllAsRead = useCallback(() => {
-    setNotifications(prev =>
-      prev.map(notification => ({ ...notification, read: true }))
-    );
-  }, []);
-
-  const clearNotification = useCallback((notificationId: string) => {
-    setNotifications(prev => prev.filter(notification => notification.id !== notificationId));
-  }, []);
-
-  const clearAllNotifications = useCallback(() => {
-    setNotifications([]);
-    // Also clear from localStorage
-    if (user?.id) {
-      localStorage.removeItem(`notifications_${user.id}`);
-    }
-    // Clear ALL notification data from localStorage (for all users)
-    Object.keys(localStorage).forEach(key => {
-      if (key.startsWith('notifications_')) {
-        localStorage.removeItem(key);
+      if (error) {
+        // Silently fail if table doesn't exist
+        if (error.code === '42P01') return;
+        throw error;
       }
-    });
+
+      setNotifications(prev =>
+        prev.map(notification =>
+          notification.id === notificationId
+            ? { ...notification, read: true, read_at: new Date().toISOString() }
+            : notification
+        )
+      );
+    } catch (error) {
+      console.error('[NotificationContext] Error marking notification as read:', error);
+    }
   }, [user?.id]);
 
-  // Set up real-time subscriptions for client requests
+  const markAllAsRead = useCallback(async () => {
+    try {
+      const { error } = await supabase
+        .from('notifications' as any)
+        .update({ read: true, read_at: new Date().toISOString() })
+        .eq('user_id', user?.id)
+        .eq('read', false);
+
+      if (error) {
+        if (error.code === '42P01') return;
+        throw error;
+      }
+
+      setNotifications(prev =>
+        prev.map(notification => ({ ...notification, read: true, read_at: new Date().toISOString() }))
+      );
+    } catch (error) {
+      console.error('[NotificationContext] Error marking all notifications as read:', error);
+    }
+  }, [user?.id]);
+
+  const clearNotification = useCallback(async (notificationId: string) => {
+    try {
+      const { error } = await supabase
+        .from('notifications' as any)
+        .delete()
+        .eq('id', notificationId)
+        .eq('user_id', user?.id);
+
+      if (error) {
+        if (error.code === '42P01') return;
+        throw error;
+      }
+
+      setNotifications(prev => prev.filter(notification => notification.id !== notificationId));
+    } catch (error) {
+      console.error('[NotificationContext] Error clearing notification:', error);
+    }
+  }, [user?.id]);
+
+  const clearAllNotifications = useCallback(async () => {
+    try {
+      const { error } = await supabase
+        .from('notifications' as any)
+        .delete()
+        .eq('user_id', user?.id);
+
+      if (error) {
+        if (error.code === '42P01') return;
+        throw error;
+      }
+
+      setNotifications([]);
+    } catch (error) {
+      console.error('[NotificationContext] Error clearing all notifications:', error);
+    }
+  }, [user?.id]);
+
+  // Set up real-time subscriptions for notifications
   useEffect(() => {
     if (!user?.id) return;
 
     console.log('[NotificationProvider] Setting up real-time subscriptions for user:', user.id);
 
-    // Subscribe to new requests
-    const requestsChannel = supabase
-      .channel(`creator-requests-${user.id}`)
+    // Subscribe to new notifications for this user
+    const notificationsChannel = supabase
+      .channel(`user-notifications-${user.id}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'requests',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
         },
-        async (payload) => {
-          console.log('[NotificationProvider] New request detected:', payload);
+        (payload) => {
+          console.log('[NotificationProvider] 🔔 New notification received:', payload);
           
-          // Get the request details with client and project info
-          const { data: requestData, error } = await supabase
-            .from('requests')
-            .select(`
-              *,
-              projects!inner(
-                id,
-                title,
-                end_clients!inner(
-                  id,
-                  name,
-                  email,
-                  company,
-                  creators!inner(
-                    id,
-                    user_id
-                  )
-                )
-              )
-            `)
-            .eq('id', payload.new.id)
-            .eq('projects.end_clients.creators.user_id', user.id)
-            .single();
-
-          if (error || !requestData) {
-            console.error('Error fetching request details:', error);
-            return;
-          }
-
-          const client = requestData.projects?.end_clients;
-          const project = requestData.projects;
-
-          // Validate that this is a real, meaningful request
-          if (!client?.name || !project?.title || !isValidRequest(requestData)) {
-            console.log('Skipping notification for invalid/test request:', requestData.title);
-            return;
-          }
-
-          addNotification({
-            type: 'request',
-            title: `New Request from ${client.name}`,
-            message: `${requestData.title} - ${requestData.description.substring(0, 100)}${requestData.description.length > 100 ? '...' : ''}`,
-            data: {
-              requestId: requestData.id,
-              projectId: project.id,
-              clientId: client.id,
-              priority: requestData.priority,
-              requestType: requestData.request_type,
-            },
-            priority: requestData.priority as 'low' | 'medium' | 'high' | 'urgent',
+          const newNotification = payload.new as Notification;
+          
+          // Add to state
+          setNotifications(prev => [newNotification, ...prev]);
+          
+          // Show toast
+          toast({
+            title: newNotification.title,
+            description: newNotification.message,
+            variant: newNotification.priority === 'urgent' ? 'destructive' : 'default',
           });
+          
+          // Show browser notification if permitted
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification(newNotification.title, {
+              body: newNotification.message,
+              icon: '/favicon.ico',
+            });
+          }
         }
       )
-      .subscribe();
-
-    // Subscribe to new chatbot requests
-    const chatbotRequestsChannel = supabase
-      .channel(`creator-chatbot-requests-${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'chatbot_requests',
-        },
-        async (payload) => {
-          console.log('[NotificationProvider] New chatbot request detected:', payload);
-          
-          // Get the chatbot request details with project info
-          const { data: requestData, error } = await supabase
-            .from('chatbot_requests')
-            .select(`
-              *,
-              projects!inner(
-                id,
-                title,
-                end_clients!inner(
-                  id,
-                  name,
-                  email,
-                  company,
-                  creators!inner(
-                    id,
-                    user_id
-                  )
-                )
-              )
-            `)
-            .eq('id', payload.new.id)
-            .eq('projects.end_clients.creators.user_id', user.id)
-            .single();
-
-          if (error || !requestData) {
-            console.error('Error fetching chatbot request details:', error);
-            return;
-          }
-
-          const client = requestData.projects?.end_clients;
-          const project = requestData.projects;
-
-          // Validate that this is a real, meaningful chatbot request
-          if (!client?.name || !project?.title || !isValidChatbotRequest(requestData)) {
-            console.log('Skipping notification for invalid/test chatbot request:', requestData.chatbot_name);
-            return;
-          }
-
-          addNotification({
-            type: 'chatbot_request',
-            title: `New Chatbot Request from ${client.name}`,
-            message: `${requestData.chatbot_name} - ${requestData.chatbot_purpose.substring(0, 100)}${requestData.chatbot_purpose.length > 100 ? '...' : ''}`,
-            data: {
-              requestId: requestData.id,
-              projectId: project.id,
-              clientId: client.id,
-              priority: requestData.priority,
-            },
-            priority: requestData.priority as 'low' | 'medium' | 'high' | 'urgent',
-          });
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[NotificationProvider] ✅ Successfully subscribed to real-time notifications');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('[NotificationProvider] ❌ Channel error:', err);
+        } else if (status === 'TIMED_OUT') {
+          console.error('[NotificationProvider] ⏱️ Subscription timed out');
+        } else {
+          console.log('[NotificationProvider] Subscription status:', status);
         }
-      )
-      .subscribe();
-
-    // Subscribe to new leads
-    const leadsChannel = supabase
-      .channel(`creator-leads-${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'leads',
-        },
-        async (payload) => {
-          console.log('[NotificationProvider] New lead detected:', payload);
-          
-          // Get the lead details with chatbot and project info
-          const { data: leadData, error } = await supabase
-            .from('leads')
-            .select(`
-              *,
-              chatbots!inner(
-                id,
-                name,
-                projects!inner(
-                  id,
-                  title,
-                  end_clients!inner(
-                    id,
-                    name,
-                    email,
-                    company,
-                    creators!inner(
-                      id,
-                      user_id
-                    )
-                  )
-                )
-              )
-            `)
-            .eq('id', payload.new.id)
-            .eq('chatbots.projects.end_clients.creators.user_id', user.id)
-            .single();
-
-          if (error || !leadData) {
-            console.error('Error fetching lead details:', error);
-            return;
-          }
-
-          const client = leadData.chatbots?.projects?.end_clients;
-          const project = leadData.chatbots?.projects;
-
-          // Validate that this is a real, meaningful lead
-          if (!client?.name || !project?.title || !isValidLead(leadData)) {
-            console.log('Skipping notification for invalid/test lead:', leadData.question_asked);
-            return;
-          }
-
-          addNotification({
-            type: 'lead',
-            title: `New Lead from ${client.name}`,
-            message: `${leadData.visitor_name || 'Anonymous'} asked: ${leadData.question_asked.substring(0, 100)}${leadData.question_asked.length > 100 ? '...' : ''}`,
-            data: {
-              leadId: leadData.id,
-              projectId: project.id,
-              clientId: client.id,
-              chatbotId: leadData.chatbot_id,
-              leadScore: leadData.lead_score,
-            },
-            priority: leadData.lead_score >= 80 ? 'high' : leadData.lead_score >= 60 ? 'medium' : 'low',
-          });
-        }
-      )
-      .subscribe();
+      });
 
     // Request notification permission
     if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
+      Notification.requestPermission().then(permission => {
+        console.log('[NotificationProvider] Browser notification permission:', permission);
+      });
     }
 
     return () => {
       console.log('[NotificationProvider] Cleaning up real-time subscriptions');
-      supabase.removeChannel(requestsChannel);
-      supabase.removeChannel(chatbotRequestsChannel);
-      supabase.removeChannel(leadsChannel);
+      supabase.removeChannel(notificationsChannel);
     };
-  }, [user?.id, addNotification]);
+  }, [user?.id, toast]);
 
   const value: NotificationContextType = {
     notifications,

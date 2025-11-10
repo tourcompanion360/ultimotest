@@ -36,22 +36,6 @@
       "type": "image/png"
     }
   ],
-  "screenshots": [
-    {
-      "src": "/screenshot-wide.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "TourCompanion Dashboard"
-    },
-    {
-      "src": "/screenshot-mobile.png",
-      "sizes": "390x844",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "TourCompanion Mobile App"
-    }
-  ],
   "shortcuts": [
     {
       "name": "Projects",

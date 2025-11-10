@@ -12,6 +12,10 @@ import { useCreatorDashboard } from '@/hooks/useCreatorDashboard';
 import { useRecentActivity } from '@/hooks/useRecentActivity';
 import RecentActivity from '@/components/RecentActivity';
 import { supabase } from '@/integrations/supabase/client';
+import ShareClientPortal from './ShareClientPortal';
+import NewClientModal from './NewClientModal';
+import { EmptyStateCard } from './EmptyStateCard';
+import { createPortal } from 'react-dom';
 import { 
   Search, 
   Plus, 
@@ -28,12 +32,26 @@ import {
   Bot,
   MessageSquare,
   Star,
+  Share2,
   Settings,
   ExternalLink,
   Filter,
   Download,
-  RefreshCw
+  RefreshCw,
+  Trash2,
+  UserPlus,
+  Sparkles
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface Client {
   id: string;
@@ -75,6 +93,11 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onClientSelect }) =
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [subscriptionFilter, setSubscriptionFilter] = useState('all');
+  const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deletingClientId, setDeletingClientId] = useState<string | null>(null);
+  const [selectedClientForSharing, setSelectedClientForSharing] = useState<Client | null>(null);
+  const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(false);
   
   // Real-time subscription setup
   const channelRef = useRef<any>(null);
@@ -92,11 +115,8 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onClientSelect }) =
   // Transform real data to match the expected format
   const clients = realClients || [];
 
-  // Filter clients to only show those with at least one active project
-  const clientsWithProjects = clients.filter(client => {
-    const hasProjects = projects?.some(project => project.end_client_id === client.id);
-    return hasProjects;
-  });
+  // Show all clients (they don't need projects to be visible)
+  const clientsWithProjects = clients;
 
   // Set up real-time subscriptions for clients
   useEffect(() => {
@@ -210,6 +230,54 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onClientSelect }) =
   const handleClientSelect = (client: Client) => {
     setSelectedClient(client);
     onClientSelect?.(client);
+  };
+
+  const handleDeleteClient = (client: Client) => {
+    const clientProjects = projects?.filter(p => p.end_client_id === client.id) || [];
+    setClientToDelete(client);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleClientCreated = async (newClient: any) => {
+    console.log('[ClientManagement] New client created:', newClient);
+    await refreshData();
+    setIsNewClientModalOpen(false);
+  };
+
+  const confirmDeleteClient = async () => {
+    if (!clientToDelete) return;
+
+    try {
+      setDeletingClientId(clientToDelete.id);
+      setIsDeleteDialogOpen(false);
+
+      // Delete client (cascading deletes will handle related projects and data via database constraints)
+      const { error } = await supabase
+        .from('end_clients')
+        .delete()
+        .eq('id', clientToDelete.id);
+
+      if (error) throw error;
+
+      const clientProjects = projects?.filter(p => p.end_client_id === clientToDelete.id) || [];
+      
+      toast({
+        title: 'Client Deleted',
+        description: `Client "${clientToDelete.name}" and ${clientProjects.length} associated project(s) have been permanently deleted.`,
+      });
+
+      await refreshData();
+    } catch (err: any) {
+      console.error('Error deleting client:', err);
+      toast({
+        title: 'Delete Failed',
+        description: err.message || 'Could not delete the client. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeletingClientId(null);
+      setClientToDelete(null);
+    }
   };
 
   const totalViews = clientsWithProjects.reduce((sum, client) => sum + (client.analytics?.totalViews || 0), 0);
@@ -502,11 +570,6 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onClientSelect }) =
             Manage all your clients and view their detailed analytics
           </p>
         </div>
-        
-        <Button className="bg-primary hover:bg-primary-hover">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Client
-        </Button>
       </div>
 
       {/* Overview Stats */}
@@ -590,7 +653,7 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onClientSelect }) =
         </Card>
       </div>
 
-      {/* Filters */}
+      {/* Filters and Actions */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -625,6 +688,14 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onClientSelect }) =
             <SelectItem value="enterprise">Enterprise</SelectItem>
           </SelectContent>
         </Select>
+        
+        <Button 
+          onClick={() => setIsNewClientModalOpen(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Add Client
+        </Button>
       </div>
 
       {/* Clients Grid */}
@@ -661,8 +732,8 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onClientSelect }) =
               <CardHeader className="pb-3">
                 <div className="card-header-safe">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center flex-shrink-0">
-                      <span className="text-sm font-semibold text-primary">
+                    <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
+                      <span className="text-sm font-semibold text-white">
                         {client.name.split(' ').map(n => n[0]).join('').toUpperCase()}
                       </span>
                     </div>
@@ -761,8 +832,25 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onClientSelect }) =
                   <Button 
                     variant="outline" 
                     size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedClientForSharing(client);
+                    }}
+                    className="bg-blue-600 text-white hover:bg-blue-700 hover:text-white"
                   >
-                    <Settings className="h-3 w-3" />
+                    <Share2 className="h-3 w-3" />
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteClient(client);
+                    }}
+                    disabled={deletingClientId === client.id}
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2 className="h-3 w-3" />
                   </Button>
                 </div>
               </CardContent>
@@ -772,25 +860,117 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onClientSelect }) =
       )}
 
       {!isLoading && filteredClients.length === 0 && (
-        <Card>
-          <CardContent className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">No clients found</h3>
-              <p className="text-muted-foreground mb-4">
-                {searchTerm || statusFilter !== 'all' || subscriptionFilter !== 'all'
-                  ? 'Try adjusting your search or filters'
-                  : 'No clients have been added yet'
-                }
-              </p>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Add First Client
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        searchTerm || statusFilter !== 'all' || subscriptionFilter !== 'all' ? (
+          <Card>
+            <CardContent className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">No clients found</h3>
+                <p className="text-muted-foreground mb-4">
+                  Try adjusting your search or filters
+                </p>
+                <Button variant="outline" onClick={() => { setSearchTerm(''); setStatusFilter('all'); setSubscriptionFilter('all'); }}>
+                  Clear Filters
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <EmptyStateCard
+            icon={UserPlus}
+            title="Start Building Your Client Base"
+            description="Add your first client to begin managing projects, tracking analytics, and delivering amazing virtual tour experiences."
+            primaryAction={{
+              label: "Add First Client",
+              onClick: () => setIsNewClientModalOpen(true),
+              icon: Plus
+            }}
+            tips={[
+              "Each client gets their own secure portal to view projects",
+              "Track analytics and engagement for every client",
+              "Share project links directly from the client dashboard",
+              "Manage multiple projects per client easily"
+            ]}
+          />
+        )
       )}
+
+      {/* Delete Client Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Client?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                Are you sure you want to delete <strong>"{clientToDelete?.name}"</strong> from{' '}
+                <strong>{clientToDelete?.company}</strong>?
+              </p>
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 space-y-2">
+                <p className="text-sm font-medium text-destructive">
+                  This action cannot be undone. Deleting this client will also permanently delete:
+                </p>
+                <ul className="text-sm space-y-1 list-disc list-inside text-muted-foreground">
+                  <li><strong>{projects?.filter(p => p.end_client_id === clientToDelete?.id).length || 0}</strong> associated project(s)</li>
+                  <li>All project chatbots and configurations</li>
+                  <li>All analytics and performance data</li>
+                  <li>All client requests and feedback</li>
+                  <li>All uploaded media and assets</li>
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteClient}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {deletingClientId === clientToDelete?.id ? 'Deleting...' : 'Delete Client & Projects'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Share Client Portal Modal */}
+      {selectedClientForSharing && createPortal(
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 z-[9999]"
+          onClick={() => setSelectedClientForSharing(null)}
+        >
+          <div
+            className="bg-background rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto z-[101]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="p-6">
+              <div className="flex items-center justify-end mb-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedClientForSharing(null)}
+                  aria-label="Close share client portal"
+                >
+                  ×
+                </Button>
+              </div>
+              <ShareClientPortal
+                clientId={selectedClientForSharing.id}
+                clientName={selectedClientForSharing.name}
+                clientEmail={selectedClientForSharing.email}
+                clientCompany={selectedClientForSharing.company}
+                projectCount={projects?.filter(p => p.end_client_id === selectedClientForSharing.id).length || 0}
+              />
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* New Client Modal */}
+      <NewClientModal
+        isOpen={isNewClientModalOpen}
+        onClose={() => setIsNewClientModalOpen(false)}
+        onClientCreated={handleClientCreated}
+      />
     </div>
   );
 };

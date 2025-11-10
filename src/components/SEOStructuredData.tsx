@@ -9,15 +9,16 @@ const SEOStructuredData: React.FC<SEOStructuredDataProps> = ({ type = 'website' 
   const { agencySettings } = useAgency();
   
   const getStructuredData = () => {
+    const baseUrl = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '';
     const baseData = {
       "@context": "https://schema.org",
       "@type": "Organization",
       "name": `${agencySettings.agency_name} Dashboard`,
       "description": "gestisci il tuo virtual tour con un click",
-      "url": "https://eec03a89-7554-4793-b88b-68fe18925d71.lovableproject.com",
+      "url": baseUrl,
       "logo": {
         "@type": "ImageObject",
-        "url": `https://eec03a89-7554-4793-b88b-68fe18925d71.lovableproject.com${agencySettings.agency_logo}`,
+        "url": `${baseUrl}${agencySettings.agency_logo}`,
         "width": 512,
         "height": 512
       },
@@ -39,11 +40,11 @@ const SEOStructuredData: React.FC<SEOStructuredDataProps> = ({ type = 'website' 
         "@type": "WebSite",
         "name": `${agencySettings.agency_name} Dashboard`,
         "description": "gestisci il tuo virtual tour con un click",
-        "url": "https://eec03a89-7554-4793-b88b-68fe18925d71.lovableproject.com",
+  "url": baseUrl,
         "publisher": baseData,
         "potentialAction": {
           "@type": "SearchAction",
-          "target": "https://eec03a89-7554-4793-b88b-68fe18925d71.lovableproject.com/?search={search_term_string}",
+          "target": `${baseUrl}/?search={search_term_string}`,
           "query-input": "required name=search_term_string"
         },
         "inLanguage": "it",

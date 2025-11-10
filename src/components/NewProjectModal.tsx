@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,7 +32,9 @@ import {
   MessageSquare,
   Zap,
   CheckCircle,
-  X
+  X,
+  Users,
+  UserPlus
 } from 'lucide-react';
 
 interface NewProjectModalProps {
@@ -46,9 +48,13 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, onPr
   const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [clientMode, setClientMode] = useState<'new' | 'existing'>('new');
+  const [existingClients, setExistingClients] = useState<any[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState<string>('');
+  const [loadingClients, setLoadingClients] = useState(false);
   
   const [formData, setFormData] = useState({
-    // Client Information
+    // Client Information (for new clients)
     clientName: '',
     clientEmail: '',
     clientPhone: '',
@@ -116,17 +122,81 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, onPr
     }));
   };
 
+  // Load existing clients when modal opens
+  useEffect(() => {
+    if (isOpen && user) {
+      loadExistingClients();
+    }
+  }, [isOpen, user]);
+
+  const loadExistingClients = async () => {
+    try {
+      setLoadingClients(true);
+      
+      // Get creator ID
+      const { data: creator, error: creatorError } = await supabase
+        .from('creators')
+        .select('id')
+        .eq('user_id', user?.id)
+        .single();
+
+      if (creatorError || !creator) {
+        console.error('Error finding creator:', creatorError);
+        return;
+      }
+
+      // Fetch all clients for this creator
+      const { data: clients, error: clientsError } = await supabase
+        .from('end_clients')
+        .select('id, name, email, company')
+        .eq('creator_id', creator.id)
+        .order('name');
+
+      if (clientsError) {
+        console.error('Error loading clients:', clientsError);
+        return;
+      }
+
+      setExistingClients(clients || []);
+    } catch (error) {
+      console.error('Error in loadExistingClients:', error);
+    } finally {
+      setLoadingClients(false);
+    }
+  };
+
   const handleSubmit = async () => {
     try {
       setIsSubmitting(true);
       
-      // Validate and sanitize required fields
-      if (!formData.clientName || !formData.clientEmail || !formData.projectTitle) {
+      // Validate based on mode
+      if (clientMode === 'existing' && !selectedClientId) {
         toast({
           title: "Missing Information",
-          description: "Please fill in all required fields.",
+          description: "Please select a client.",
           variant: "destructive"
         });
+        setIsSubmitting(false);
+        return;
+      }
+      
+      if (clientMode === 'new' && (!formData.clientName || !formData.clientEmail)) {
+        toast({
+          title: "Missing Information",
+          description: "Please fill in client name and email.",
+          variant: "destructive"
+        });
+        setIsSubmitting(false);
+        return;
+      }
+      
+      if (!formData.projectTitle) {
+        toast({
+          title: "Missing Information",
+          description: "Please fill in project title.",
+          variant: "destructive"
+        });
+        setIsSubmitting(false);
         return;
       }
 
@@ -171,28 +241,54 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, onPr
         return;
       }
 
-      // Step 1: Create end client
-      const { data: endClient, error: clientError } = await supabase
-        .from('end_clients')
-        .insert({
-          creator_id: creator.id,
-          name: sanitizedData.clientName,
-          email: sanitizedData.clientEmail,
-          company: sanitizedData.clientCompany,
-          phone: sanitizedData.clientPhone || null,
-          website: formData.clientWebsite || null,
-        })
-        .select('id, name, email')
-        .single();
+      let endClient: any;
 
-      if (clientError) {
-        console.error('Error creating client:', clientError);
-        toast({
-          title: "Error Creating Client",
-          description: clientError.message,
-          variant: "destructive"
-        });
-        return;
+      // Step 1: Get or create end client based on mode
+      if (clientMode === 'existing') {
+        // Use existing client
+        const { data: existingClient, error: fetchError } = await supabase
+          .from('end_clients')
+          .select('id, name, email, company')
+          .eq('id', selectedClientId)
+          .single();
+
+        if (fetchError || !existingClient) {
+          console.error('Error fetching existing client:', fetchError);
+          toast({
+            title: "Error",
+            description: "Could not find the selected client.",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        endClient = existingClient;
+      } else {
+        // Create new client
+        const { data: newClient, error: clientError } = await supabase
+          .from('end_clients')
+          .insert({
+            creator_id: creator.id,
+            name: sanitizedData.clientName,
+            email: sanitizedData.clientEmail,
+            company: sanitizedData.clientCompany,
+            phone: sanitizedData.clientPhone || null,
+            website: formData.clientWebsite || null,
+          })
+          .select('id, name, email, company')
+          .single();
+
+        if (clientError) {
+          console.error('Error creating client:', clientError);
+          toast({
+            title: "Error Creating Client",
+            description: clientError.message,
+            variant: "destructive"
+          });
+          return;
+        }
+
+        endClient = newClient;
       }
 
       // Step 2: Create project
@@ -223,9 +319,13 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, onPr
       console.log('Project created successfully:', { project, endClient });
 
       // Show success message
+      const successMessage = clientMode === 'existing'
+        ? `New project "${project.title}" has been added to ${endClient.name}'s account.`
+        : `New project "${project.title}" has been created for ${endClient.name}. Go to "Chatbots" section to create your AI assistant.`;
+      
       toast({
         title: "Project Created Successfully",
-        description: `New project "${project.title}" has been created for ${endClient.name}. Go to "Chatbots" section to create your AI assistant.`,
+        description: successMessage,
       });
 
       // Pass the project data back to parent for refresh
@@ -295,11 +395,85 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, onPr
         return (
           <div className="space-y-6">
             <div className="text-center py-4">
-              <h3 className="text-lg font-semibold text-foreground">Tell us about your client</h3>
-              <p className="text-sm text-muted-foreground mt-1">We'll use this information to personalize their experience</p>
+              <h3 className="text-lg font-semibold text-foreground">Select or Create Client</h3>
+              <p className="text-sm text-muted-foreground mt-1">Choose an existing client or create a new one</p>
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+            {/* Client Mode Selection */}
+            <div className="flex gap-4 justify-center">
+              <Card 
+                className={`cursor-pointer transition-all ${clientMode === 'existing' ? 'ring-2 ring-primary bg-primary/5' : 'hover:bg-accent'}`}
+                onClick={() => setClientMode('existing')}
+              >
+                <CardContent className="p-6 flex flex-col items-center gap-3">
+                  <Users className="h-8 w-8 text-primary" />
+                  <div className="text-center">
+                    <h4 className="font-semibold">Existing Client</h4>
+                    <p className="text-xs text-muted-foreground mt-1">Add project to existing client</p>
+                  </div>
+                  {existingClients.length > 0 && (
+                    <Badge variant="secondary">{existingClients.length} clients</Badge>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card 
+                className={`cursor-pointer transition-all ${clientMode === 'new' ? 'ring-2 ring-primary bg-primary/5' : 'hover:bg-accent'}`}
+                onClick={() => setClientMode('new')}
+              >
+                <CardContent className="p-6 flex flex-col items-center gap-3">
+                  <UserPlus className="h-8 w-8 text-primary" />
+                  <div className="text-center">
+                    <h4 className="font-semibold">New Client</h4>
+                    <p className="text-xs text-muted-foreground mt-1">Create a new client profile</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Existing Client Selection */}
+            {clientMode === 'existing' && (
+              <div className="space-y-4">
+                <Label>Select Client *</Label>
+                {loadingClients ? (
+                  <div className="text-center py-8 text-muted-foreground">Loading clients...</div>
+                ) : existingClients.length === 0 ? (
+                  <Card className="bg-muted/50">
+                    <CardContent className="p-6 text-center">
+                      <Users className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                      <p className="text-sm text-muted-foreground">No existing clients found.</p>
+                      <Button 
+                        variant="link" 
+                        className="mt-2"
+                        onClick={() => setClientMode('new')}
+                      >
+                        Create your first client
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Select value={selectedClientId} onValueChange={setSelectedClientId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a client..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {existingClients.map((client) => (
+                        <SelectItem key={client.id} value={client.id}>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{client.name}</span>
+                            <span className="text-xs text-muted-foreground">• {client.company || client.email}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            )}
+
+            {/* New Client Form */}
+            {clientMode === 'new' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="clientName">Client Name *</Label>
                 <Input
@@ -351,6 +525,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClose, onPr
                 />
               </div>
             </div>
+            )}
           </div>
         );
 

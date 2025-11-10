@@ -126,8 +126,8 @@ const ClientProjectCard: React.FC<ClientProjectCardProps> = ({
       <CardHeader className="pb-3">
         <div className="card-header-safe">
           <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center flex-shrink-0">
-              <span className="text-sm font-semibold text-primary">
+            <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
+              <span className="text-sm font-semibold text-white">
                 {project.client.name.split(' ').map(n => n[0]).join('').toUpperCase()}
               </span>
             </div>

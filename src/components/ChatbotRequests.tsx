@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -409,9 +410,15 @@ const ChatbotRequests = () => {
       )}
 
       {/* Project Selector Modal */}
-      {showProjectSelector && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-background rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+      {showProjectSelector && createPortal(
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 z-[9999]"
+          onClick={() => setShowProjectSelector(false)}
+        >
+          <div
+            className="bg-background rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold">Select Project for Chatbot Request</h2>
@@ -452,13 +459,23 @@ const ChatbotRequests = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* New Request Modal */}
-      {isNewRequestOpen && selectedProjectForNewRequest && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-background rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+      {isNewRequestOpen && selectedProjectForNewRequest && createPortal(
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 z-[9999]"
+          onClick={() => {
+            setIsNewRequestOpen(false);
+            setSelectedProjectForNewRequest(null);
+          }}
+        >
+          <div
+            className="bg-background rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold">Request Custom Chatbot</h2>
@@ -481,7 +498,8 @@ const ChatbotRequests = () => {
               />
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

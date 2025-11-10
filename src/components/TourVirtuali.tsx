@@ -1,17 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import ClientProjectCard from '@/components/ClientProjectCard';
+import ClientProjectCard from './ClientProjectCard';
+import { EmptyStateCard } from './EmptyStateCard';
 import NewProjectModal from '@/components/NewProjectModal';
 import ChatbotRequestForm from '@/components/ChatbotRequestForm';
 import { useCreatorDashboard } from '@/hooks/useCreatorDashboardRobust';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import ShareClientPortal from './ShareClientPortal';
 import EditClientModal from './EditClientModal';
 import { 
   Plus, 
@@ -25,10 +26,21 @@ import {
   MessageSquare,
   Calendar,
   Settings,
-  Loader2
+  Loader2,
+  Rocket
 } from 'lucide-react';
 import { OptimizedLoading } from '@/components/LoadingStates';
 import { TEXT } from '@/constants/text';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface TourVirtualiProps {
   onPageChange?: (page: string) => void;
@@ -45,8 +57,9 @@ const TourVirtuali = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
-  const [selectedProjectForSharing, setSelectedProjectForSharing] = useState<any>(null);
   const [isEditClientModalOpen, setIsEditClientModalOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<any>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedClientForEdit, setSelectedClientForEdit] = useState<any>(null);
   
   // Use authentication and data fetching hooks
@@ -273,9 +286,6 @@ const TourVirtuali = ({
     setIsNewProjectModalOpen(false);
   };
 
-  const handleSharePortal = (project: any) => {
-    setSelectedProjectForSharing(project);
-  };
 
   const handleViewDetails = (project: any) => {
     // Navigate to client dashboard
@@ -321,36 +331,42 @@ const TourVirtuali = ({
 
   const { toast } = useToast();
 
-  const handleDeleteProject = async (project: any) => {
-    const confirmed = window.confirm(
-      `Delete project "${project.project?.title || 'Untitled'}" for ${project.client?.name || 'this client'}? This will remove associated chatbots, analytics, requests, and assets.`
-    );
-    if (!confirmed) return;
+  const handleDeleteProject = (project: any) => {
+    setProjectToDelete(project);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteProject = async () => {
+    if (!projectToDelete) return;
 
     try {
-      setDeletingProjectId(project.id);
+      setDeletingProjectId(projectToDelete.id);
+      setIsDeleteDialogOpen(false);
+
+      // Delete project (cascading deletes will handle related data via database constraints)
       const { error } = await supabase
         .from('projects')
         .delete()
-        .eq('id', project.id);
+        .eq('id', projectToDelete.id);
 
       if (error) throw error;
 
       toast({
-        title: 'Project deleted',
-        description: 'The project and its related data were removed successfully.'
+        title: 'Project Deleted',
+        description: `Project "${projectToDelete.project?.title}" and all related data have been permanently deleted.`,
       });
 
       await refreshData();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error deleting project:', err);
       toast({
-        title: 'Delete failed',
-        description: 'We could not delete this project. Please try again.',
-        variant: 'destructive'
+        title: 'Delete Failed',
+        description: err.message || 'Could not delete the project. Please try again.',
+        variant: 'destructive',
       });
     } finally {
       setDeletingProjectId(null);
+      setProjectToDelete(null);
     }
   };
 
@@ -508,43 +524,45 @@ const TourVirtuali = ({
               onEditProject={handleEditProject}
               onDeleteProject={handleDeleteProject}
               onStatusChange={handleStatusChange}
-              onSharePortal={handleSharePortal}
             />
           ))}
         </div>
       )}
 
       {!isLoading && filteredProjects.length === 0 && (
-        <Card>
-          <CardContent className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">
-                {searchTerm || statusFilter !== 'all' 
-                  ? 'No projects found'
-                  : 'Welcome to your Client Projects Hub'
-                }
-              </h3>
-              <p className="text-muted-foreground mb-4">
-                {searchTerm || statusFilter !== 'all' 
-                  ? 'Try adjusting your search or filters to find projects'
-                  : 'Start building your virtual tour business by creating your first client project. You can manage projects, track analytics, and set up chatbots all from here.'
-                }
-              </p>
-              {(!searchTerm && statusFilter === 'all') && (
-                <div className="space-y-2">
-                  <Button onClick={() => setIsNewProjectModalOpen(true)} className="mr-2">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Your First Project
-                  </Button>
-                  <p className="text-xs text-muted-foreground">
-                    Need help getting started? Check out our documentation or contact support.
-                  </p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        searchTerm || statusFilter !== 'all' ? (
+          <Card>
+            <CardContent className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">No projects found</h3>
+                <p className="text-muted-foreground mb-4">
+                  Try adjusting your search or filters to find projects
+                </p>
+                <Button variant="outline" onClick={() => { setSearchTerm(''); setStatusFilter('all'); }}>
+                  Clear Filters
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <EmptyStateCard
+            icon={Rocket}
+            title="Ready to Launch Your First Project?"
+            description="Create a client project in seconds. You can add a new client or use an existing one, then set up your virtual tour project with all the details."
+            primaryAction={{
+              label: "Create First Project",
+              onClick: () => setIsNewProjectModalOpen(true),
+              icon: Plus
+            }}
+            tips={[
+              "You can create a client and project together in one flow",
+              "Projects can be virtual tours, 3D showcases, or interactive maps",
+              "Add chatbots later from the Chatbots section",
+              "Share media and track analytics once your project is live"
+            ]}
+          />
+        )
       )}
 
       {/* New Project Modal */}
@@ -554,32 +572,6 @@ const TourVirtuali = ({
         onProjectCreated={handleNewProjectCreated}
       />
 
-      {/* Share Client Portal Modal */}
-      {selectedProjectForSharing && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-background rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold">Share Client Portal</h2>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedProjectForSharing(null)}
-                >
-                  ×
-                </Button>
-              </div>
-              <ShareClientPortal
-                projectId={selectedProjectForSharing.id}
-                projectTitle={selectedProjectForSharing.project.title}
-                clientName={selectedProjectForSharing.client.name}
-                clientEmail={selectedProjectForSharing.client.email}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Edit Client Modal */}
       <EditClientModal
         isOpen={isEditClientModalOpen}
@@ -587,6 +579,40 @@ const TourVirtuali = ({
         client={selectedClientForEdit}
         onClientUpdated={handleClientUpdated}
       />
+
+      {/* Delete Project Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                Are you sure you want to delete <strong>"{projectToDelete?.project?.title}"</strong> for{' '}
+                <strong>{projectToDelete?.client?.name}</strong>?
+              </p>
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 space-y-2">
+                <p className="text-sm font-medium text-destructive">This action cannot be undone. The following will be permanently deleted:</p>
+                <ul className="text-sm space-y-1 list-disc list-inside text-muted-foreground">
+                  <li>Project data and settings</li>
+                  <li>Associated chatbots and configurations</li>
+                  <li>Analytics and performance data</li>
+                  <li>Client requests and feedback</li>
+                  <li>Uploaded media and assets</li>
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteProject}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {deletingProjectId === projectToDelete?.id ? 'Deleting...' : 'Delete Project'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );

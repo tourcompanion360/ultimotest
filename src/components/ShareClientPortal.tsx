@@ -6,31 +6,33 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Copy, ExternalLink, Mail, Share2, Eye } from 'lucide-react';
+import { Copy, ExternalLink, Mail, Share2, Eye, CheckCircle } from 'lucide-react';
 
 interface ShareClientPortalProps {
-  projectId: string;
-  projectTitle: string;
+  clientId: string;
   clientName: string;
   clientEmail: string;
+  clientCompany?: string;
+  projectCount?: number;
 }
 
 const ShareClientPortal: React.FC<ShareClientPortalProps> = ({
-  projectId,
-  projectTitle,
+  clientId,
   clientName,
-  clientEmail
+  clientEmail,
+  clientCompany,
+  projectCount = 0
 }) => {
   const { toast } = useToast();
   const [portalUrl, setPortalUrl] = useState('');
   const [isCopied, setIsCopied] = useState(false);
 
   useEffect(() => {
-    // Generate the portal URL
+    // Generate the unified client portal URL (not project-specific)
     const baseUrl = window.location.origin;
-    const url = `${baseUrl}/client/${projectId}`;
+    const url = `${baseUrl}/client/${clientId}`;
     setPortalUrl(url);
-  }, [projectId]);
+  }, [clientId]);
 
   const copyToClipboard = async () => {
     try {
@@ -55,18 +57,20 @@ const ShareClientPortal: React.FC<ShareClientPortalProps> = ({
   };
 
   const sendEmail = () => {
-    const subject = `Your Virtual Tour Portal - ${projectTitle}`;
+    const projectText = projectCount === 1 ? 'project' : 'projects';
+    const subject = `Your Client Portal - ${clientCompany || clientName}`;
     const body = `Hi ${clientName},
 
-Your virtual tour portal is ready! Click the link below to access your project dashboard:
+Your unified client portal is ready! Click the link below to access all your ${projectCount} ${projectText}:
 
 ${portalUrl}
 
 In your portal, you can:
-• View your project details and analytics
+• View all your projects in one place
+• Access project details and analytics
 • Download shared media files
 • Submit requests for changes
-• Chat with your AI assistant
+• Chat with your AI assistants
 
 If you have any questions, please don't hesitate to contact us.
 
@@ -78,115 +82,111 @@ Your Tour Creator Team`;
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Share2 className="h-5 w-5" />
-          Share Client Portal
-        </CardTitle>
-        <CardDescription>
-          Share the client portal with {clientName} so they can access their project dashboard
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Project Info */}
-        <div className="bg-muted/50 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold">{projectTitle}</h3>
-            <Badge variant="outline">Active</Badge>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Client: {clientName} ({clientEmail})
-          </p>
-        </div>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="space-y-1">
+        <h2 className="text-2xl font-semibold text-foreground">Share Client Portal</h2>
+        <p className="text-sm text-muted-foreground">
+          Share the unified portal with {clientName} to access all {projectCount} {projectCount === 1 ? 'project' : 'projects'} in one place.
+        </p>
+      </div>
 
-        {/* Portal URL */}
-        <div className="space-y-2">
-          <Label>Client Portal URL</Label>
-          <div className="flex items-center gap-2">
-            <Input
-              value={portalUrl}
-              readOnly
-              className="flex-1"
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={copyToClipboard}
-              className="shrink-0"
-            >
-              {isCopied ? (
-                "Copied!"
-              ) : (
-                <>
-                  <Copy className="h-4 w-4 mr-1" />
-                  Copy
-                </>
-              )}
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Share this URL with your client. They can access their portal directly.
-          </p>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <Button
-            variant="outline"
-            onClick={openPortal}
-            className="flex items-center gap-2"
-          >
-            <Eye className="h-4 w-4" />
-            Preview Portal
-          </Button>
-          
-          <Button
-            variant="outline"
-            onClick={sendEmail}
-            className="flex items-center gap-2"
-          >
-            <Mail className="h-4 w-4" />
-            Send Email
-          </Button>
-          
+      {/* Portal URL Section */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-foreground">Client Portal URL</Label>
+        <div className="flex items-center gap-2">
+          <Input
+            value={portalUrl}
+            readOnly
+            className="flex-1 bg-muted/30 border-border font-mono text-sm"
+          />
           <Button
             onClick={copyToClipboard}
-            className="flex items-center gap-2"
+            className="shrink-0 min-w-[120px]"
           >
-            <Copy className="h-4 w-4" />
-            Copy URL
+            {isCopied ? (
+              <>
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Copied!
+              </>
+            ) : (
+              <>
+                <Copy className="h-4 w-4 mr-2" />
+                Copy URL
+              </>
+            )}
           </Button>
         </div>
+        <p className="text-xs text-muted-foreground">
+          Share this URL with your client. They can access their portal directly.
+        </p>
+      </div>
 
-        {/* Instructions */}
-        <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-4">
-          <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
-            How to Share:
-          </h4>
-          <ol className="text-sm text-blue-800 dark:text-blue-200 space-y-1 list-decimal list-inside">
-            <li>Copy the URL above</li>
-            <li>Send it to your client via email, WhatsApp, or any messaging app</li>
-            <li>Your client clicks the link to access their portal</li>
-            <li>They can view their project, analytics, and submit requests</li>
-          </ol>
-        </div>
+      {/* Action Buttons */}
+      <div className="grid grid-cols-2 gap-2">
+        <Button
+          onClick={openPortal}
+          className="flex items-center justify-center gap-2 h-11 rounded-lg bg-primary text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+        >
+          <Eye className="h-4 w-4" />
+          Preview Portal
+        </Button>
+        
+        <Button
+          onClick={sendEmail}
+          className="flex items-center justify-center gap-2 h-11 rounded-lg bg-indigo-500 text-white shadow-sm transition-colors hover:bg-indigo-500/90"
+        >
+          <Mail className="h-4 w-4" />
+          Send Email
+        </Button>
+      </div>
 
-        {/* What Client Sees */}
-        <div className="bg-green-50 dark:bg-green-950/20 rounded-lg p-4">
-          <h4 className="font-semibold text-green-900 dark:text-green-100 mb-2">
-            What Your Client Will See:
-          </h4>
-          <ul className="text-sm text-green-800 dark:text-green-200 space-y-1 list-disc list-inside">
-            <li>Project overview with details and stats</li>
-            <li>Analytics dashboard with performance metrics</li>
-            <li>Media library to download shared files</li>
-            <li>Request form to ask for changes</li>
-            <li>Chatbot interface for questions</li>
-          </ul>
-        </div>
-      </CardContent>
-    </Card>
+      {/* How to Share Section */}
+      <div className="space-y-3 pt-1">
+        <h3 className="text-base font-semibold text-foreground">How to Share</h3>
+        <ol className="space-y-2 text-sm text-muted-foreground">
+          <li className="flex items-start gap-2">
+            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary font-semibold text-xs shrink-0">1</span>
+            <span className="pt-0.5">Copy the URL above or scan the QR code.</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary font-semibold text-xs shrink-0">2</span>
+            <span className="pt-0.5">Send it to your client via email, WhatsApp, or any messaging app.</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary font-semibold text-xs shrink-0">3</span>
+            <span className="pt-0.5">Your client clicks the link to access their portal.</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary font-semibold text-xs shrink-0">4</span>
+            <span className="pt-0.5">They can view all their projects, analytics, and submit requests.</span>
+          </li>
+        </ol>
+      </div>
+
+      {/* What Client Sees Section */}
+      <div className="space-y-3 pt-1">
+        <h3 className="text-base font-semibold text-foreground">What Your Client Will See</h3>
+        <ul className="space-y-2 text-sm text-muted-foreground">
+          <li className="flex items-start gap-2">
+            <CheckCircle className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+            <span className="pt-0.5">All their projects in one unified dashboard.</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <CheckCircle className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+            <span className="pt-0.5">Project details, analytics, and performance metrics.</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <CheckCircle className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+            <span className="pt-0.5">Media library to download shared files.</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <CheckCircle className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+            <span className="pt-0.5">Request form to ask for changes across all projects.</span>
+          </li>
+        </ul>
+      </div>
+    </div>
   );
 };
 

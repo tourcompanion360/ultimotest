@@ -13,37 +13,21 @@
   "scope": "/",
   "icons": [
     {
-      "src": "/icon-192x192.png",
+      "src": "/tourcompanion-logo.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon-512x512.png",
+      "src": "/tourcompanion-logo.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/apple-touch-icon.png",
+      "src": "/tourcompanion-logo.png",
       "sizes": "180x180",
       "type": "image/png"
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "/screenshot-wide.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "Main dashboard with virtual tours"
-    },
-    {
-      "src": "/screenshot-mobile.png",
-      "sizes": "390x844",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Optimized mobile app"
     }
   ],
   "shortcuts": [
@@ -52,21 +36,21 @@
       "short_name": "Projects",
       "description": "Manage your virtual tour projects",
       "url": "/?shortcut=projects",
-      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/tourcompanion-logo.png", "sizes": "192x192" }]
     },
     {
       "name": "Client Requests",
       "short_name": "Requests",
       "description": "View client requests",
       "url": "/?shortcut=requests",
-      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/tourcompanion-logo.png", "sizes": "192x192" }]
     },
     {
       "name": "Analytics",
       "short_name": "Analytics",
       "description": "View analytics dashboard",
       "url": "/?shortcut=analytics",
-      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/tourcompanion-logo.png", "sizes": "192x192" }]
     }
   ],
   "related_applications": [],

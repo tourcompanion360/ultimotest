@@ -16,7 +16,7 @@ import { AgencyProvider } from '@/contexts/AgencyContext';
 import { handleShortcuts } from '@/utils/pwaUtils';
 
 const Index = () => {
-  const [currentPage, setCurrentPage] = useState('projects');
+  const [currentPage, setCurrentPage] = useState('clients');
   const [prefilledRequest, setPrefilledRequest] = useState<any>(null);
   const [selectedClient, setSelectedClient] = useState<any>(null);
 
@@ -32,7 +32,7 @@ const Index = () => {
 
   const handleBackToProjects = () => {
     setSelectedClient(null);
-    setCurrentPage('projects');
+    setCurrentPage('clients');
   };
 
   const renderPage = () => {

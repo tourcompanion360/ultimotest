@@ -24,15 +24,24 @@ import {
   Users,
   CheckCircle,
   Clock,
-  Eye,
-  Download,
   Trash2,
   Edit,
   Mail,
   Folder,
   ExternalLink,
-  Loader2
+  Loader2,
+  Box
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface Client {
   id: string;
@@ -48,12 +57,14 @@ export default function MediaLibrary() {
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<'media' | 'clients'>('media');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [assetToDelete, setAssetToDelete] = useState<{ id: string; name: string } | null>(null);
   
   // Form state for new media
   const [newMedia, setNewMedia] = useState({
     title: '',
     description: '',
-    type: 'link' as 'image' | 'video' | 'document' | 'link' | 'audio',
+    type: 'link' as 'image' | 'video' | 'document' | 'link' | 'audio' | '3d',
     url: '',
     file: null as File | null
   });
@@ -138,23 +149,37 @@ export default function MediaLibrary() {
       refreshData();
     }, 1000);
   };
-  const handleDeleteAsset = async (assetId: string) => {
-    const confirmed = window.confirm('Delete this media from your library?');
-    if (!confirmed) return;
+  const handleDeleteAsset = (assetId: string, assetName: string) => {
+    setAssetToDelete({ id: assetId, name: assetName });
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteAsset = async () => {
+    if (!assetToDelete) return;
 
     try {
       const { error } = await supabase
         .from('assets')
         .delete()
-        .eq('id', assetId);
+        .eq('id', assetToDelete.id);
 
       if (error) throw error;
 
-      toast({ title: 'Media deleted', description: 'The item was removed from your library.' });
+      toast({ 
+        title: 'Media deleted', 
+        description: 'The item was removed from your library and all client dashboards.' 
+      });
       await refreshData();
     } catch (err) {
       console.error('Error deleting asset:', err);
-      toast({ title: 'Delete failed', description: 'Could not delete the media.', variant: 'destructive' });
+      toast({ 
+        title: 'Delete failed', 
+        description: 'Could not delete the media.', 
+        variant: 'destructive' 
+      });
+    } finally {
+      setIsDeleteDialogOpen(false);
+      setAssetToDelete(null);
     }
   };
 
@@ -195,6 +220,14 @@ export default function MediaLibrary() {
     return projects && projects.some(project => project.end_client_id === client.id);
   });
 
+  // Count projects that currently have media linked
+  const projectsWithMediaCount = safeAssets.reduce((set, asset) => {
+    if (asset.project_id) {
+      set.add(asset.project_id);
+    }
+    return set;
+  }, new Set<string>()).size;
+
   // Get assets for the selected client (when in client view)
   const getAssetsForClient = (clientId: string) => {
     if (!projects || !safeAssets) return [];
@@ -212,6 +245,15 @@ export default function MediaLibrary() {
     return getAssetsForClient(clientId).length;
   };
 
+  const isValidUrl = (value: string) => {
+    try {
+      const url = new URL(value.trim());
+      return url.protocol === 'https:' || url.protocol === 'http:';
+    } catch (error) {
+      return false;
+    }
+  };
+
   const handleClientToggle = (clientId: string) => {
     setSelectedClients(prev => 
       prev.includes(clientId) 
@@ -221,10 +263,19 @@ export default function MediaLibrary() {
   };
 
   const handleSendMedia = async () => {
-    if (!newMedia.title || !newMedia.url) {
+    if (!newMedia.title || !newMedia.url.trim()) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!isValidUrl(newMedia.url)) {
+      toast({
+        title: "Invalid link",
+        description: "Please provide a valid http or https link.",
         variant: "destructive"
       });
       return;
@@ -272,7 +323,7 @@ export default function MediaLibrary() {
         project_id: project.id,
         filename: newMedia.title,
         original_filename: newMedia.title,
-        file_type: newMedia.type === 'link' ? 'text/url' : `application/${newMedia.type}`,
+        file_type: newMedia.type, // Store the selected type directly: 'link', 'image', 'video', 'document', 'audio'
         file_size: 0, // For links, size is 0
         file_url: newMedia.url,
         thumbnail_url: newMedia.type === 'image' ? newMedia.url : null,
@@ -328,10 +379,22 @@ export default function MediaLibrary() {
   };
 
   const getFileIcon = (fileType: string) => {
-    if (fileType.startsWith('image/')) return <Image className="h-5 w-5" />;
-    if (fileType.startsWith('video/')) return <Video className="h-5 w-5" />;
-    if (fileType.startsWith('audio/')) return <Music className="h-5 w-5" />;
-    return <FileText className="h-5 w-5" />;
+    const normalizedType = fileType.toLowerCase().trim();
+    
+    // Check simple type format first (from creator selection)
+    if (normalizedType === 'image') return <Image className="h-5 w-5 text-blue-500" />;
+    if (normalizedType === 'video') return <Video className="h-5 w-5 text-red-500" />;
+    if (normalizedType === 'audio') return <Music className="h-5 w-5 text-green-500" />;
+    if (normalizedType === 'document') return <FileText className="h-5 w-5 text-orange-500" />;
+    if (normalizedType === '3d') return <Box className="h-5 w-5 text-purple-500" />;
+    if (normalizedType === 'link') return <Link className="h-5 w-5 text-cyan-500" />;
+    
+    // Fallback to MIME type detection
+    if (fileType.startsWith('image/')) return <Image className="h-5 w-5 text-blue-500" />;
+    if (fileType.startsWith('video/')) return <Video className="h-5 w-5 text-red-500" />;
+    if (fileType.startsWith('audio/')) return <Music className="h-5 w-5 text-green-500" />;
+    
+    return <Link className="h-5 w-5 text-cyan-500" />;
   };
 
   return (
@@ -423,15 +486,13 @@ export default function MediaLibrary() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Storage Used</CardTitle>
+            <CardTitle className="text-sm font-medium">Projects with Media</CardTitle>
             <Folder className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {Math.round(safeAssets.reduce((sum, asset) => sum + (asset.file_size || 0), 0) / 1024 / 1024)}MB
-            </div>
+            <div className="text-2xl font-bold">{projectsWithMediaCount}</div>
             <p className="text-xs text-muted-foreground">
-              Total storage
+              Projects currently sharing assets
             </p>
           </CardContent>
         </Card>
@@ -473,19 +534,12 @@ export default function MediaLibrary() {
                         </CardDescription>
                       </div>
                     </div>
-                    <Badge variant="secondary" className="text-xs">
-                      {Math.round((asset.file_size || 0) / 1024)}KB
-                    </Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>Uploaded {new Date(asset.created_at).toLocaleDateString()}</span>
-                      <div className="flex items-center gap-1">
-                        <Eye className="h-3 w-3" />
-                        <span>0 views</span>
-                      </div>
                     </div>
                     
                     {asset.tags && asset.tags.length > 0 && (
@@ -506,7 +560,7 @@ export default function MediaLibrary() {
                       <Button size="sm" variant="outline">
                         <Edit className="h-3 w-3" />
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => handleDeleteAsset(asset.id)}>
+                      <Button size="sm" variant="outline" onClick={() => handleDeleteAsset(asset.id, asset.original_filename || asset.filename)}>
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
@@ -552,7 +606,7 @@ export default function MediaLibrary() {
               {getAssetsForClient(selectedClient.id).map((asset) => (
                 <Card key={asset.id} className="hover:shadow-lg transition-shadow">
                   <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-primary/10 rounded-lg">
                           {getFileIcon(asset.file_type || '')}
@@ -570,21 +624,17 @@ export default function MediaLibrary() {
                   </CardHeader>
                   <CardContent className="pt-0">
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>Shared {new Date(asset.created_at).toLocaleDateString()}</span>
-                        <div className="flex items-center gap-1">
-                          <Eye className="h-3 w-3" />
-                          <span>0 views</span>
-                        </div>
-                      </div>
-                      
+                      <span className="text-xs text-muted-foreground block">
+                        Shared {new Date(asset.created_at).toLocaleDateString()}
+                      </span>
+
                       <div className="flex items-center gap-2">
                         <Button size="sm" variant="outline" className="flex-1">
                           <ExternalLink className="h-3 w-3 mr-1" />
                           View
                         </Button>
                         <Button size="sm" variant="outline">
-                          <Download className="h-3 w-3" />
+                          <Send className="h-3 w-3" />
                         </Button>
                       </div>
                     </div>
@@ -671,11 +721,12 @@ export default function MediaLibrary() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="link">Link</SelectItem>
-                  <SelectItem value="image">Image</SelectItem>
-                  <SelectItem value="video">Video</SelectItem>
-                  <SelectItem value="document">Document</SelectItem>
-                  <SelectItem value="audio">Audio</SelectItem>
+                  <SelectItem value="link">🔗 Link</SelectItem>
+                  <SelectItem value="image">🖼️ Image</SelectItem>
+                  <SelectItem value="video">🎬 Video</SelectItem>
+                  <SelectItem value="3d">📦 3D Model</SelectItem>
+                  <SelectItem value="document">📄 Document</SelectItem>
+                  <SelectItem value="audio">🎵 Audio</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -729,6 +780,38 @@ export default function MediaLibrary() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Media Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Media?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                Are you sure you want to delete <strong>"{assetToDelete?.name}"</strong>?
+              </p>
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 space-y-2">
+                <p className="text-sm font-medium text-destructive">
+                  This action cannot be undone. Deleting this media will also permanently remove it from:
+                </p>
+                <ul className="text-sm space-y-1 list-disc list-inside text-muted-foreground">
+                  <li>All client dashboards where it was shared</li>
+                  <li>All project media libraries</li>
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteAsset}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Delete Media
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

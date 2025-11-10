@@ -14,7 +14,7 @@ import ClientPortal from "./pages/ClientPortal";
 import AdminDashboard from "./pages/AdminDashboard";
 import TestClientPortal from "./pages/TestClientPortalView";
 import TestClientPortalView from "./pages/TestClientPortalView";
-import ClientDashboard from "./pages/ClientDashboard";
+import ClientDashboard from "./pages/ClientDashboardNew";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -40,9 +40,9 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
-        {/* Standalone client dashboard - completely public, no authentication */}
+        {/* Unified client portal - shows all projects for a client */}
         <Route
-          path="/client/:projectId"
+          path="/client/:clientId"
           element={<ClientDashboard />}
         />
         {/* Test route for client portal - bypasses magic link requirement */}

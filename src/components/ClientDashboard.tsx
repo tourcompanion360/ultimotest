@@ -11,7 +11,6 @@ import {
   Users, 
   Clock, 
   Star,
-  Download,
   Share2,
   BarChart3,
   PieChart,
@@ -26,6 +25,7 @@ import {
 import { TEXT } from '@/constants/text';
 import { useRecentActivity } from '@/hooks/useRecentActivity';
 import RecentActivity from '@/components/RecentActivity';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Client {
   id: string;
@@ -41,13 +41,16 @@ interface Project {
   id: string;
   title: string;
   description: string;
-  thumbnail_url: string;
-  status: 'active' | 'inactive' | 'draft';
+  thumbnail_url?: string;
+  status: 'active' | 'inactive' | 'draft' | 'archived';
   created_at: string;
   updated_at: string;
-  views: number;
-  client_name: string;
+  views?: number;
+  end_client_id: string;
   project_type: string;
+  creator_id?: string;
+  tour_url?: string;
+  settings?: any;
 }
 
 interface ClientDashboardProps {
@@ -65,27 +68,44 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ client, onBack }) => 
     limit: 10
   });
 
-  // Production ready - No sample data
+  // Calculate analytics from real project data
   const analyticsData = {
-    totalViews: 0,
+    totalViews: projects.reduce((sum, p) => sum + (p.views || 0), 0),
     uniqueVisitors: 0,
     avgSessionDuration: '0m 0s',
     bounceRate: 0,
     conversionRate: 0,
-    totalProjects: 0,
-    completedProjects: 0,
-    inProgressProjects: 0,
+    totalProjects: projects.length,
+    completedProjects: projects.filter(p => p.status === 'active').length,
+    inProgressProjects: projects.filter(p => p.status === 'draft').length,
     satisfactionScore: 0
   };
 
-  // Production ready - No sample data
-  const clientProjects: Project[] = [];
-
   useEffect(() => {
-    // Production ready - load real client projects from database
-    // For now, show empty state
-    setProjects([]);
-    setLoading(false);
+    const fetchClientProjects = async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('projects')
+          .select('*')
+          .eq('end_client_id', client.id)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Error fetching client projects:', error);
+          setProjects([]);
+        } else {
+          setProjects(data || []);
+        }
+      } catch (err) {
+        console.error('Error:', err);
+        setProjects([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchClientProjects();
   }, [client.id]);
 
   const getStatusColor = (status: string) => {
@@ -126,7 +146,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ client, onBack }) => 
             className="flex items-center gap-2 flex-shrink-0"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Projects
+            Back to Clients
           </Button>
           <div className="flex-1 min-w-0">
             <h1 className="text-3xl font-bold text-foreground truncate">{client.name}</h1>
@@ -333,10 +353,6 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ client, onBack }) => 
                     </div>
                     
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="flex-1">
-                        <Download className="w-4 h-4 mr-2" />
-                        Download
-                      </Button>
                       <Button variant="outline" size="sm">
                         <Share2 className="w-4 h-4" />
                       </Button>

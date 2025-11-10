@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { 
@@ -24,9 +25,11 @@ import {
   Loader2,
   ExternalLink,
   Search,
-  Filter
+  Filter,
+  Headset
 } from 'lucide-react';
 import { format } from 'date-fns';
+import SupportRequestsManagement from '@/components/SupportRequestsManagement';
 
 const AdminDashboard = () => {
   const { toast } = useToast();
@@ -173,11 +176,25 @@ const AdminDashboard = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Admin Dashboard - Chatbot Requests</h1>
+        <h1 className="text-2xl font-bold">Admin Dashboard</h1>
         <p className="text-muted-foreground">
-          Manage all chatbot creation requests from tour creators
+          Manage chatbot requests and support tickets
         </p>
       </div>
+
+      <Tabs defaultValue="chatbots" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="chatbots" className="flex items-center gap-2">
+            <Bot className="h-4 w-4" />
+            Chatbot Requests
+          </TabsTrigger>
+          <TabsTrigger value="support" className="flex items-center gap-2">
+            <Headset className="h-4 w-4" />
+            Support Requests
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="chatbots" className="space-y-6">
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -511,6 +528,12 @@ const AdminDashboard = () => {
           )}
         </div>
       </div>
+        </TabsContent>
+
+        <TabsContent value="support">
+          <SupportRequestsManagement />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Building2, Mail, Lock, User, Phone, Globe } from 'lucide-react';
+import { Loader2, Compass, Mail, Lock, User, Phone, Globe } from 'lucide-react';
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -37,7 +37,7 @@ const Auth = () => {
   });
 
   // Dark input styles for better contrast on dark card
-  const inputClass = "bg-slate-900 border-slate-700 text-slate-100 placeholder:text-slate-400";
+  const inputClass = "bg-white border-gray-200 text-gray-900 placeholder:text-gray-400";
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -246,20 +246,22 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'linear-gradient(to bottom right, #ffffff, #f3f4f6)' }}>
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary rounded-2xl mb-4 shadow-lg">
-            <Building2 className="h-8 w-8 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-white mb-2">TourCompanion SaaS</h1>
-          <p className="text-slate-300">Manage your virtual tours and clients</p>
+          <img 
+            src="/tourcompanion-logo.png"
+            alt="TourCompanion Logo"
+            className="h-16 mx-auto mb-4"
+          />
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">TourCompanion</h1>
+          <p className="text-gray-600">Manage your virtual tours and clients</p>
         </div>
 
-        <Card className="shadow-2xl border-slate-700 bg-slate-800/90 text-slate-100">
+        <Card className="shadow-2xl border border-gray-200 bg-white text-gray-900">
           <CardHeader>
-            <CardTitle className="text-slate-100">Tour Creator Portal</CardTitle>
-            <CardDescription className="text-slate-400">
+            <CardTitle className="text-gray-900">Tour Creator Portal</CardTitle>
+            <CardDescription className="text-gray-600">
               Sign in to your account or create a new one
             </CardDescription>
           </CardHeader>
@@ -273,8 +275,8 @@ const Auth = () => {
               {/* Sign In Tab */}
               <TabsContent value="signin">
                 {justSignedUp && signInData.email && (
-                  <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                    <p className="text-sm text-blue-800 dark:text-blue-200">
+                  <div className="mb-4 p-4 bg-white/10 border border-white/20 rounded-lg">
+                    <p className="text-sm text-white">
                       <strong>📧 Email confirmation required!</strong><br/>
                       We sent a confirmation link to <strong>{signInData.email}</strong>. 
                       Please check your inbox and click the link before signing in.
@@ -335,7 +337,7 @@ const Auth = () => {
                   <div className="space-y-2">
                     <Label htmlFor="signup-agency">Agency Name *</Label>
                     <div className="relative">
-                      <Building2 className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Compass className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="signup-agency"
                         type="text"
@@ -465,7 +467,7 @@ const Auth = () => {
           </CardContent>
         </Card>
 
-        <p className="text-center text-sm text-slate-400 mt-4">
+        <p className="text-center text-sm text-gray-500 mt-4">
           By signing in, you agree to our Terms of Service and Privacy Policy
         </p>
       </div>

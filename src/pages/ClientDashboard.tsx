@@ -10,7 +10,6 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import ContactFloater from '@/components/ContactFloater';
 import {
   Eye,
   BarChart3,
@@ -44,14 +43,10 @@ interface Project {
   project_type: string;
   created_at: string;
   updated_at: string;
-  end_clients: {
-    id: string;
-    name: string;
-    email: string;
-    company: string;
-    phone?: string;
-    website?: string;
-  };
+  end_client_id: string;
+  creator_id?: string;
+  thumbnail_url?: string;
+  views?: number;
 }
 
 interface Chatbot {
@@ -96,14 +91,16 @@ interface Request {
 }
 
 const ClientDashboard: React.FC = () => {
-  const { projectId } = useParams<{ projectId: string }>();
+  const { clientId } = useParams<{ clientId: string }>();
   const { toast } = useToast();
   
   // State
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
-  const [project, setProject] = useState<Project | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [endClient, setEndClient] = useState<any>(null);
+  const [creatorProfile, setCreatorProfile] = useState<any>(null);
   const [chatbot, setChatbot] = useState<Chatbot | null>(null);
   const [analytics, setAnalytics] = useState<Analytics[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -119,137 +116,116 @@ const ClientDashboard: React.FC = () => {
   });
   const [submittingRequest, setSubmittingRequest] = useState(false);
 
-  const loadData = async () => {
+  // Load data for a specific project
+  const loadProjectData = async (projectId: string) => {
     try {
-      setLoading(true);
-
-      if (!projectId) {
-        toast({
-          title: 'Project not found',
-          description: 'No project ID provided.',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      console.log('Loading data for project:', projectId);
-
-      // First validate the project exists and is active
-      const { data: projectData, error: projectErr } = await supabase
-        .from('projects')
-        .select(`
-          *,
-          end_clients (
-            id,
-            name,
-            email,
-            company,
-            phone,
-            website
-          )
-        `)
-        .eq('id', projectId)
-        .eq('status', 'active')  // Only allow active projects
-        .single();
-
-      if (projectErr) {
-        console.error('Project error:', projectErr);
-        setAccessDenied(true);
-        toast({
-          title: 'Access Denied',
-          description: 'This project is not accessible or has been deactivated.',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      if (!projectData) {
-        setAccessDenied(true);
-        toast({
-          title: 'Access Denied',
-          description: 'This project is not accessible or has been deactivated.',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      // Additional validation: Check if project has valid client data
-      if (!projectData.end_clients) {
-        setAccessDenied(true);
-        toast({
-          title: 'Access Denied',
-          description: 'This project is not properly configured.',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      console.log('Project data loaded:', projectData);
-      setProject(projectData);
-      setEndClient(projectData.end_clients);
-
-      // OPTIMIZED: Get all related data in parallel
       const [
         { data: chatbotData, error: chatbotErr },
         { data: analyticsData, error: analyticsErr },
         { data: assetsData, error: assetsErr },
         { data: requestsData, error: requestsErr }
       ] = await Promise.all([
-        // Get chatbot
-        supabase
-          .from('chatbots')
-          .select('*')
-          .eq('project_id', projectId)
-          .single(),
-        
-        // Get analytics
-        supabase
-          .from('analytics')
-          .select('*')
-          .eq('project_id', projectId)
-          .order('created_at', { ascending: false }),
-        
-        // Get assets
-        supabase
-          .from('assets')
-          .select('*')
-          .eq('project_id', projectId)
-          .order('created_at', { ascending: false }),
-        
-        // Get requests
-        supabase
-          .from('requests')
-          .select('*')
-          .eq('project_id', projectId)
-          .order('created_at', { ascending: false })
+        supabase.from('chatbots').select('*').eq('project_id', projectId).single(),
+        supabase.from('analytics').select('*').eq('project_id', projectId).order('created_at', { ascending: false }),
+        supabase.from('assets').select('*').eq('project_id', projectId).order('created_at', { ascending: false }),
+        supabase.from('requests').select('*').eq('project_id', projectId).order('created_at', { ascending: false })
       ]);
 
-      // Set data (handle errors gracefully)
-      if (chatbotErr) {
-        console.log('No chatbot found:', chatbotErr.message);
-      } else {
-        setChatbot(chatbotData);
+      if (!chatbotErr) setChatbot(chatbotData);
+      setAnalytics(analyticsData || []);
+      setAssets(assetsData || []);
+      setRequests(requestsData || []);
+    } catch (error) {
+      console.error('Error loading project data:', error);
+    }
+  };
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+
+      if (!clientId) {
+        toast({
+          title: 'Client not found',
+          description: 'No client ID provided.',
+          variant: 'destructive',
+        });
+        return;
       }
 
-      if (analyticsErr) {
-        console.log('No analytics found:', analyticsErr.message);
-        setAnalytics([]);
-      } else {
-        setAnalytics(analyticsData || []);
+      console.log('Loading data for client:', clientId);
+
+      // First, get client data
+      const { data: clientData, error: clientErr } = await supabase
+        .from('end_clients')
+        .select('*')
+        .eq('id', clientId)
+        .single();
+
+      if (clientErr || !clientData) {
+        console.error('Client error:', clientErr);
+        setAccessDenied(true);
+        toast({
+          title: 'Access Denied',
+          description: 'This client portal is not accessible.',
+          variant: 'destructive',
+        });
+        return;
       }
 
-      if (assetsErr) {
-        console.log('No assets found:', assetsErr.message);
-        setAssets([]);
-      } else {
-        setAssets(assetsData || []);
+      setEndClient(clientData);
+
+      // Fetch all projects for this client
+      const { data: projectsData, error: projectsErr } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('end_client_id', clientId)
+        .order('created_at', { ascending: false });
+
+      // Fetch creator profile with avatar for the first project (all projects have same creator)
+      if (projectsData && projectsData.length > 0) {
+        const creatorId = projectsData[0].creator_id;
+        if (creatorId) {
+          const { data: profileData } = await (supabase as any)
+            .from('profiles')
+            .select('avatar_url')
+            .eq('user_id', creatorId)
+            .single();
+          
+          const { data: creatorData } = await supabase
+            .from('creators')
+            .select('agency_name')
+            .eq('user_id', creatorId)
+            .single();
+          
+          setCreatorProfile({
+            avatar_url: profileData?.avatar_url,
+            agency_name: creatorData?.agency_name
+          });
+        }
       }
 
-      if (requestsErr) {
-        console.log('No requests found:', requestsErr.message);
-        setRequests([]);
-      } else {
-        setRequests(requestsData || []);
+      if (projectsErr) {
+        console.error('Projects error:', projectsErr);
+        toast({
+          title: 'Error',
+          description: 'Could not load projects.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      console.log('Projects loaded:', projectsData);
+      setProjects(projectsData || []);
+      
+      // Select first project by default
+      if (projectsData && projectsData.length > 0) {
+        setSelectedProject(projectsData[0]);
+      }
+
+      // Load data for selected project if available
+      if (projectsData && projectsData.length > 0) {
+        await loadProjectData(projectsData[0].id);
       }
 
     } catch (error: any) {
@@ -274,10 +250,10 @@ const ClientDashboard: React.FC = () => {
       return;
     }
 
-    if (!endClient) {
+    if (!endClient || !selectedProject) {
       toast({
         title: 'Error',
-        description: 'Client information not found.',
+        description: 'Client or project information not found.',
         variant: 'destructive',
       });
       return;
@@ -286,12 +262,12 @@ const ClientDashboard: React.FC = () => {
     try {
       setSubmittingRequest(true);
 
-      console.log('Submitting request for project:', projectId, 'client:', endClient.id);
+      console.log('Submitting request for project:', selectedProject.id, 'client:', endClient.id);
 
       const { error } = await supabase
         .from('requests')
         .insert({
-          project_id: projectId,
+          project_id: selectedProject.id,
           end_client_id: endClient.id,
           title: newRequest.title,
           description: newRequest.description,
@@ -371,19 +347,19 @@ const ClientDashboard: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [projectId]);
+  }, [clientId]);
 
   // Dynamic manifest and meta tag injection for PWA
   useEffect(() => {
-    if (project && endClient && projectId) {
+    if (selectedProject && endClient && selectedProject.id) {
       // Update manifest link to use dynamic manifest
       const manifestLink = document.querySelector('link[rel="manifest"]') as HTMLLinkElement;
       if (manifestLink) {
-        manifestLink.href = `/api/manifest?projectId=${projectId}`;
+        manifestLink.href = `/api/manifest?projectId=${selectedProject.id}`;
       }
       
       // Update page title
-      document.title = `${project.title} - ${endClient.company}`;
+      document.title = `${selectedProject.title} - ${endClient.company}`;
       
       // Update meta tags for better PWA experience
       const updateMetaTag = (name: string, content: string) => {
@@ -397,9 +373,9 @@ const ClientDashboard: React.FC = () => {
       };
 
       // Update various meta tags
-      updateMetaTag('description', `Dashboard for ${endClient.company} - ${project.title}`);
-      updateMetaTag('apple-mobile-web-app-title', project.title);
-      updateMetaTag('application-name', project.title);
+      updateMetaTag('description', `Dashboard for ${endClient.company} - ${selectedProject.title}`);
+      updateMetaTag('apple-mobile-web-app-title', selectedProject.title);
+      updateMetaTag('application-name', selectedProject.title);
       
       // Update Open Graph tags
       const updateOGTag = (property: string, content: string) => {
@@ -412,8 +388,8 @@ const ClientDashboard: React.FC = () => {
         meta.content = content;
       };
 
-      updateOGTag('og:title', `${project.title} - ${endClient.company}`);
-      updateOGTag('og:description', `Dashboard for ${endClient.company} - ${project.title}`);
+      updateOGTag('og:title', `${selectedProject.title} - ${endClient.company}`);
+      updateOGTag('og:description', `Dashboard for ${endClient.company} - ${selectedProject.title}`);
       updateOGTag('og:url', window.location.href);
       
       // Update Twitter meta tags
@@ -427,12 +403,12 @@ const ClientDashboard: React.FC = () => {
         meta.content = content;
       };
 
-      updateTwitterTag('title', `${project.title} - ${endClient.company}`);
-      updateTwitterTag('description', `Dashboard for ${endClient.company} - ${project.title}`);
+      updateTwitterTag('title', `${selectedProject.title} - ${endClient.company}`);
+      updateTwitterTag('description', `Dashboard for ${endClient.company} - ${selectedProject.title}`);
       
-      console.log('Dynamic manifest and meta tags updated for:', project.title);
+      console.log('Dynamic manifest and meta tags updated for:', selectedProject.title);
     }
-  }, [project, endClient, projectId]);
+  }, [selectedProject, endClient]);
 
   if (loading) {
     return (
@@ -461,7 +437,7 @@ const ClientDashboard: React.FC = () => {
     );
   }
 
-  if (!project) {
+  if (!selectedProject) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="text-center max-w-md">
@@ -485,19 +461,29 @@ const ClientDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      {/* Contact Floater */}
-      <ContactFloater projectId={projectId} />
-      
       {/* Desktop Layout */}
       <div className="hidden lg:flex min-h-screen">
         {/* Left Sidebar Navigation */}
         <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
-          {/* Header */}
+          {/* Header with Creator Logo */}
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center space-x-3">
-              <div>
+              {creatorProfile?.avatar_url ? (
+                <img 
+                  src={creatorProfile.avatar_url} 
+                  alt={creatorProfile.agency_name || 'Agency Logo'} 
+                  className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
+                />
+              ) : (
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <span className="text-white font-bold text-lg">
+                    {(creatorProfile?.agency_name || 'A').charAt(0).toUpperCase()}
+                  </span>
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
                 <h1 className="text-lg font-bold text-gray-900 truncate">
-                  {project.title}
+                  {creatorProfile?.agency_name || 'Agency'}
                 </h1>
                 <p className="text-sm text-gray-600">Client Portal</p>
               </div>
@@ -560,9 +546,22 @@ const ClientDashboard: React.FC = () => {
           <div className="px-4 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
+                {creatorProfile?.avatar_url ? (
+                  <img 
+                    src={creatorProfile.avatar_url} 
+                    alt={creatorProfile.agency_name || 'Agency Logo'} 
+                    className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <span className="text-white font-bold">
+                      {(creatorProfile?.agency_name || 'A').charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                )}
                 <div>
                   <h1 className="text-lg font-bold text-gray-900 truncate">
-                    {project.title}
+                    {creatorProfile?.agency_name || 'Agency'}
                   </h1>
                   <p className="text-xs text-gray-600">Client Portal</p>
                 </div>
@@ -627,11 +626,11 @@ const ClientDashboard: React.FC = () => {
                     <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
                       <div className="flex items-center space-x-2">
                         <Calendar className="h-4 w-4" />
-                        <span className="text-sm">Created {new Date(project.created_at).toLocaleDateString()}</span>
+                        <span className="text-sm">Created {new Date(selectedProject.created_at).toLocaleDateString()}</span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Clock className="h-4 w-4" />
-                        <span className="text-sm">Updated {new Date(project.updated_at).toLocaleDateString()}</span>
+                        <span className="text-sm">Updated {new Date(selectedProject.updated_at).toLocaleDateString()}</span>
                       </div>
                     </div>
                   </div>
@@ -643,6 +642,52 @@ const ClientDashboard: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Project Selector - Show if client has multiple projects */}
+            {projects.length > 1 && (
+              <Card className="bg-white border-gray-300 shadow-lg">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg font-semibold text-black flex items-center gap-2">
+                    <Globe className="h-5 w-5" />
+                    Your Projects ({projects.length})
+                  </CardTitle>
+                  <CardDescription>Select a project to view its details</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {projects.map((proj) => (
+                      <button
+                        key={proj.id}
+                        onClick={async () => {
+                          setSelectedProject(proj);
+                          await loadProjectData(proj.id);
+                        }}
+                        className={`p-4 rounded-lg border-2 text-left transition-all ${
+                          selectedProject?.id === proj.id
+                            ? 'border-blue-600 bg-blue-50'
+                            : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        <h3 className="font-semibold text-black mb-1">{proj.title}</h3>
+                        <p className="text-xs text-gray-600 mb-2 line-clamp-2">{proj.description}</p>
+                        <div className="flex items-center gap-2">
+                          <Badge className={`text-xs ${
+                            proj.status === 'active' 
+                              ? 'bg-green-600 text-white' 
+                              : 'bg-gray-600 text-white'
+                          } border-0`}>
+                            {proj.status}
+                          </Badge>
+                          <Badge className="text-xs bg-blue-600 text-white border-0">
+                            {proj.project_type}
+                          </Badge>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* KPI Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -714,26 +759,26 @@ const ClientDashboard: React.FC = () => {
                     <p className="text-sm text-gray-600 mb-2">Description</p>
                     <div className="bg-gray-100 rounded-lg p-3 border border-gray-300">
                       <p className="text-black text-sm leading-relaxed break-words overflow-wrap-anywhere">
-                        {project.description || 'No description provided'}
+                        {selectedProject.description || 'No description provided'}
                       </p>
                     </div>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600 mb-2">Type</p>
                     <Badge className="bg-blue-600 text-white border-0">
-                      {project.project_type || 'virtual tour'}
+                      {selectedProject.project_type || 'virtual tour'}
                     </Badge>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600 mb-2">Status</p>
                     <Badge 
                       className={`${
-                        project.status === 'active' 
+                        selectedProject.status === 'active' 
                           ? 'bg-green-600 text-white' 
                           : 'bg-gray-600 text-white'
                       } border-0`}
                     >
-                      {project.status}
+                      {selectedProject.status}
                     </Badge>
                   </div>
                 </CardContent>

@@ -2,11 +2,11 @@ User-agent: *
 Allow: /
 
 # SEO ottimizzazione per Intermobil
-Sitemap: https://eec03a89-7554-4793-b88b-68fe18925d71.lovableproject.com/sitemap.xml
+Sitemap: /sitemap.xml
 
 # Blocca file di sistema
 Disallow: /sw.js
-Disallow: /manifest.json
+ 
 Disallow: /*.json
 Disallow: /src/
 Disallow: /node_modules/

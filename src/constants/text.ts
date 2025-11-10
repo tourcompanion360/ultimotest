@@ -192,18 +192,27 @@ export const TEXT = {
 
   // FAQ
   FAQ: {
-    CREATE_FIRST_PROJECT_QUESTION: 'How do I create my first virtual tour project?',
-    CREATE_FIRST_PROJECT_ANSWER: 'Go to the Projects section and click "Create New Project". Fill in the project details, select a client, choose the project type (Virtual Tour, 3D Showcase, or Interactive Map), and add a description. Your project will be created and ready for customization.',
-    CLIENT_PORTAL_ACCESS_QUESTION: 'How do my clients access their portal?',
-    CLIENT_PORTAL_ACCESS_ANSWER: 'After creating a project, you can share the client portal link with your clients. They can use this link to view their projects, submit requests, and interact with chatbots. The portal is automatically generated for each project.',
-    CHATBOT_SETUP_QUESTION: 'How do I set up a chatbot for my client?',
-    CHATBOT_SETUP_ANSWER: 'Go to the Chatbots section, click "Create Client Chatbot", and fill in the client information. Configure the chatbot\'s knowledge base, customize its appearance to match your client\'s brand, and activate it. The chatbot will automatically appear on your client\'s portal.',
-    REQUEST_TYPES_QUESTION: 'What types of requests can clients submit?',
-    REQUEST_TYPES_ANSWER: 'Clients can submit various types of requests: Hotspot Updates (add interactive points), Content Changes (modify text/images), Design Modifications (change layout/styling), New Features (request additional functionality), and Bug Fixes (report issues).',
-    NOTIFICATIONS_QUESTION: 'How do I get notified about new client requests?',
-    NOTIFICATIONS_ANSWER: 'You\'ll receive real-time notifications through the notification bell in the top navigation. Click the bell to see recent requests, or click "See All Notifications" to view the full notification panel with search and filtering options.',
-    PROJECT_SHARING_QUESTION: 'How do I share a project with my client?',
-    PROJECT_SHARING_ANSWER: 'Each project has a unique sharing link that you can send to your client. Go to the project details, click "Share Client Portal", and copy the generated link. Your client can use this link to access their dedicated portal.',
+    CREATE_FIRST_PROJECT_QUESTION: 'How do I create my first project?',
+    CREATE_FIRST_PROJECT_ANSWER: 'Go to Projects and click "Create Project". You can pick an existing client or create a new one in the same flow. Then choose a project type (Virtual Tour, 3D Showcase, Interactive Map), add a title/description, and confirm.',
+    CLIENT_PORTAL_ACCESS_QUESTION: 'How do clients access their portal?',
+    CLIENT_PORTAL_ACCESS_ANSWER: 'Every project has a dedicated client portal link. From the project row, click "Share Client Portal" to copy the link and send it to your client.',
+    CHATBOT_SETUP_QUESTION: 'How do I add a chatbot?',
+    CHATBOT_SETUP_ANSWER: 'Open the Chatbots tab and click "Create Client Chatbot". Connect it to the client/project, customize responses and style, then activate it. You can add a chatbot at any time.',
+    REQUEST_TYPES_QUESTION: 'What kind of requests can clients send?',
+    REQUEST_TYPES_ANSWER: 'Typical requests include Hotspot Updates, Content Changes, Design Tweaks, New Features, and Bug Fixes. You\'ll see them in real time in the dashboard.',
+    NOTIFICATIONS_QUESTION: 'How do I get notified?',
+    NOTIFICATIONS_ANSWER: 'You get in-app notifications instantly. If you set up custom SMTP, you can also receive email notifications for important events.',
+    PROJECT_SHARING_QUESTION: 'How do I share a project?',
+    PROJECT_SHARING_ANSWER: 'Open the project and click "Share Client Portal" to copy the shareable link. Your client can access the portal directly from that link.',
+
+    MEDIA_TYPES_QUESTION: 'Why does a media item show the wrong icon/type?',
+    MEDIA_TYPES_ANSWER: 'When sending media, pick the correct type (image, video, 3D, document, audio, link). The client portal shows the icon based on the selected type. You can edit the asset to correct the type if needed.',
+    DELETE_MEDIA_QUESTION: 'If I delete media, is it removed everywhere?',
+    DELETE_MEDIA_ANSWER: 'Yes. Deleting from the Media Library removes it from the client portal as well. Deletion uses a safe in‑app confirmation dialog and cascades to views.',
+    PWA_ICON_QUESTION: 'Why do I still see a generic “T” icon when installing?',
+    PWA_ICON_ANSWER: 'The app uses the TourCompanion logo in the manifest. If you still see a “T”, hard refresh (Ctrl/Cmd+Shift+R) or clear site data to bust the cache.',
+    EMAIL_TEMPLATES_QUESTION: 'Can I customize signup emails and use my SMTP?',
+    EMAIL_TEMPLATES_ANSWER: 'Yes. In Supabase Auth > Email templates, customize the content. For production, set up SMTP (e.g., Resend, Brevo). You can start with Supabase\'s built‑in emails for low volume and switch later.',
   },
 
   // Contact
@@ -612,6 +621,9 @@ export const TEXT = {
     // Headers
     SETTINGS: 'Settings',
     MANAGE_ACCOUNT: 'Manage your account, integrations, and API access.',
+    APPEARANCE: 'Appearance',
+    APPEARANCE_DESCRIPTION: 'Choose between light and dark themes.',
+    DARK_MODE: 'Dark mode',
     
     // Tabs
     PROFILE: 'Profile',
